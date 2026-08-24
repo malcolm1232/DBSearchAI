@@ -6,8 +6,8 @@ export const NAV_LINKS = [
   { label: "Pricing", href: "/pricing" },
 ] as const;
 
-export const DOCS_URL = "https://github.com/dbsearch-ai/dbsearch#readme";
-export const GITHUB_URL = "https://github.com/dbsearch-ai/dbsearch";
+export const DOCS_URL = "https://github.com/malcolm1232/DBSearchAI#readme";
+export const GITHUB_URL = "https://github.com/malcolm1232/DBSearchAI";
 /*
  * Same-origin by default (#401): the site is exported and served by the very box
  * that runs the app, so the shell is a plain path.

@@ -16,6 +16,7 @@ import { CtaBand } from "@/components/sections/cta-band";
 import { ArchToc } from "@/components/arch-toc";
 import { ChapterTabs } from "@/components/chapter-tabs";
 import { START_URL } from "@/lib/nav";
+import { FileLink } from "@/components/file-link";
 
 export const metadata: Metadata = {
   title: "Architecture - DBSearch.AI",
@@ -290,7 +291,7 @@ function CodeRef({
     // otherwise widen the column past the viewport instead of scrolling
     <figure className="min-w-0 max-w-full overflow-hidden rounded-lg border border-border bg-surface">
       <figcaption className="border-b border-border px-4 py-2.5 font-mono text-xs text-fg">
-        {file}
+        <FileLink file={file} />
       </figcaption>
       <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-fg-muted">
         <code>{code}</code>
