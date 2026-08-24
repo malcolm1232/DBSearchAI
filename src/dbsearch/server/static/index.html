@@ -1,0 +1,170 @@
+<!-- src/dbsearch/server/static/index.html -->
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DBSearch.AI</title>
+  <!-- #415: ?v=__DBS_BUILD__ is substituted server-side with a hash of the shell
+       AND every js/css file. A stale browser cannot serve a cached copy of a URL
+       it has never requested, which is what repairs an ALREADY-poisoned cache. -->
+  <!-- #634: BEFORE FIRST PAINT, and it has to be inline and synchronous to be worth
+       anything. Moving to Connectors is a real document load (/canvas is its own document),
+       and neither page ships rail markup - the rail arrives with a dynamically imported
+       module, ~180ms after the page has already painted. Stamping these two attributes here
+       lets CSS hold the rail's column open and paint it dark immediately, so the black
+       sidebar is continuous across the navigation instead of popping in.
+       Theme rides along for the same reason: applying it from a module means a dark-theme
+       user gets a white page first. Wrapped in try/catch because localStorage throws
+       outright in some privacy modes, and a nav bar is not worth a blank page. -->
+  <script>
+    (function () {
+      try {
+        var d = document.documentElement;
+        d.setAttribute("data-theme", localStorage.getItem("dbsearch_theme") || "light");
+        d.setAttribute("data-rail",
+          localStorage.getItem("dbsearch_rail_collapsed") === "1" ? "icons" : "full");
+      } catch (e) { /* no storage: the defaults in the HTML and CSS still apply */ }
+      // #638: WHICH VIEW, decided here rather than after a network round trip.
+      //
+      // Both views used to ship `hidden`, and `initShell` unhid one only after loadConfig()'s
+      // /config fetch AND the whole module graph had resolved. So every cross-document
+      // navigation - Connectors to Admin, Connectors to Ask - painted a COMPLETELY WHITE
+      // document first. Not a missing sidebar: nothing at all. (#634's dark band could not
+      // help, because the band is painted on .app-grid, which IS #view-app, which was hidden.)
+      //
+      // The path already knows the answer and needs no server and no fetch: this document is
+      // served at "/" and at the shell surfaces, nowhere else, so "/" is the landing and
+      // anything else is the app. No copy of SHELL_PATHS here on purpose - a third list would
+      // be a third thing to keep in step with app.py and login.js.
+      var p = location.pathname.replace(/\/+$/, "") || "/";
+      document.documentElement.setAttribute("data-view", p === "/" ? "landing" : "app");
+    })();
+  </script>
+  <!-- #643: the stale-build self-heal, moved here from canvas.html when Connectors became a
+       surface of this document. It is a property of the DOCUMENT, not of a surface, and it
+       used to protect only the one page that happened to carry it.
+
+       #261 made the server send Cache-Control: no-cache. That governs entries stored AFTER
+       it - it cannot retract a copy the browser already holds. A pre-fix entry keeps its
+       heuristic freshness window and is served without ever asking the server (navigation
+       transferSize 0), so a shipped feature simply appears to be missing and the operator
+       goes hunting. Nothing server-side fixes that; the page has to notice.
+
+       The server substitutes the real content hash for __DBS_BUILD__ when it serves this
+       file; /version reports what the CURRENT build is. Mismatch => this copy is stale, so
+       replace it via a URL the cache has never seen (a query param guarantees a miss, where
+       a plain reload can be served from the same stale entry).
+
+       Guarded against looping: we record the build we reloaded FOR, so a server whose build
+       never matches gets exactly one attempt, not an infinite refresh. Failure to reach
+       /version is ignored - a staleness check must never break a working page. -->
+  <script>
+    (function () {
+      var DBS_BUILD = "__DBS_BUILD__";
+      fetch("/version", { cache: "no-store" }).then(function (r) { return r.json(); })
+        .then(function (v) {
+          if (!v || !v.build || v.build === DBS_BUILD) return;
+          if (sessionStorage.getItem("dbs.healed") === v.build) return;   // already tried
+          sessionStorage.setItem("dbs.healed", v.build);
+          var u = new URL(location.href);
+          u.searchParams.set("b", v.build);
+          location.replace(u.toString());
+        }).catch(function () {});
+      // once we are current, drop the cache-busting param so the URL stays clean and shareable
+      if (new URLSearchParams(location.search).has("b")) {
+        var u2 = new URL(location.href); u2.searchParams.delete("b");
+        history.replaceState({}, "", u2.pathname + (u2.search || "") + u2.hash);
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/css/tokens.css?v=__DBS_BUILD__">
+  <link rel="stylesheet" href="/static/css/rail.css?v=__DBS_BUILD__">
+  <link rel="stylesheet" href="/static/css/app.css?v=__DBS_BUILD__">
+  <!-- #643: the Connectors surface. Every selector inside is scoped under `.canvas-surface`,
+       because this file and app.css share 17 class names from their years as two documents. -->
+  <!-- #689: the Sources rail, shared by /canvas and /ask. Scoped to `.proof-host`, which
+       either surface puts on the container it renders a block into. -->
+  <link rel="stylesheet" href="/static/css/proofs.css?v=__DBS_BUILD__">
+  <link rel="stylesheet" href="/static/css/canvas.css?v=__DBS_BUILD__">
+</head>
+<body>
+
+  <!-- ───────────────── LANDING ───────────────── -->
+  <section class="view landing" id="view-landing">
+    <nav class="lp-nav">
+      <span class="brand"><span class="brand-mark-sm"></span>DBSearch<span class="dot">.AI</span></span>
+      <span class="lp-spacer"></span>
+      <!-- #386: reinstated. #346 removed sign-in because a visitor had "nothing to sign in
+           to yet"; that stopped being true when multi-tenant Entra + per-owner workspaces +
+           the credential panel shipped, and the operator himself could not find the door. -->
+      <button class="btn-ghost" id="lp-signin">Sign in</button>
+      <button class="btn-primary" id="lp-demo">Try it free</button>
+    </nav>
+    <div class="lp-hero">
+      <span class="lp-eyebrow">Enterprise RAG · Azure-native · in-tenant</span>
+      <!-- #347: the line used to end "your company knowledge -", a hyphen left behind when an
+           em dash was removed under the house rule. At the end of a line it reads as a stray
+           character rather than punctuation. The sentence never needed it: the line break does
+           the work, and "Answers ... that respect who's asking" is one clean clause. -->
+      <h1>Answers from your company knowledge<br><span class="grad">that respect who's asking.</span></h1>
+      <p>DBSearch.AI gives every employee a permission-faithful answer engine over SharePoint and
+         your file shares. No document a user can't already open is ever retrieved. Nothing leaves
+         your cloud.</p>
+      <div class="lp-cta">
+        <button class="btn-primary" id="lp-demo-2">Try it free</button>
+      </div>
+      <div class="lp-trust">
+        <span class="trust-chip">🛡 No content leaves your tenant</span>
+        <span class="trust-chip">🔒 Permission-trimmed retrieval (LAW 2)</span>
+        <span class="trust-chip">⚙ Open-weight or Azure OpenAI models</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- The demo login gate that used to sit here was removed (#329). It was a localStorage
+       card with its own credentials printed on it, and every path through it (right
+       password, wrong password, "Continue with Microsoft") landed on /canvas anyway.
+       Real auth is user_auth.py / google_auth.py; it never lived here.
+
+       #346: the landing's two "Sign in" buttons were removed because a visitor had nothing
+       to sign in to yet. #386 reinstated ONE, as a ghost next to the primary CTA: the full
+       self-serve funnel now exists, and without the word "Sign in" on the page a returning
+       user has no way back in. "Try it free" stays the single PRIMARY action. -->
+
+  <!-- ───────────────── APP SHELL ───────────────── -->
+  <div class="view app-grid" id="view-app">
+    <div class="brand-corner">
+      <span class="brand-mark"></span>
+      <span class="brand-name">DBSearch<span class="ai">.AI</span></span>
+    </div>
+
+    <header class="topbar">
+      <span class="edition-pill" id="edition-pill"><span class="pulse"></span>…</span>
+      <span class="trust-chip">🛡 No content leaves your cloud</span>
+      <span class="spacer"></span>
+      <span class="model-pick" id="model-pick"></span>
+      <!-- #630: ONE account control. The identity chip, the theme toggle and Sign out used to
+           sit here as three separate topbar items, and none of them answered the question a
+           user actually had - "am I connected to Microsoft?" - which is a different question
+           from "am I signed in?". js/ui/account.js builds the avatar and its dropdown from
+           /auth/me; theme and sign-out moved inside it. -->
+      <span class="acct" id="account"></span>
+    </header>
+
+    <!-- #413: the navigation is rendered by js/ui/rail.js, the ONE definition of it,
+         shared with the canvas. It used to be hand-written here AND again in
+         canvas.html's topbar, so the nav moved between surfaces and the two copies
+         drifted the moment either was touched. -->
+    <main id="surface" class="surface" aria-live="polite"></main>
+  </div>
+
+  <!-- #557: the global is DBS_BUILD_ID, NOT __DBS_BUILD__. The server substitutes the
+       build hash with a blanket string replace, so a placeholder used as an IDENTIFIER
+       here becomes `window.9f7d94f659a8 = ...` whenever the hash starts with a digit -
+       10 hex characters in 16, i.e. a ~62% chance per deploy of a SyntaxError that blanks
+       every shell surface. The token may appear in value and ?v= positions only. -->
+  <script>window.DBS_BUILD_ID = "__DBS_BUILD__";</script>
+  <script type="module" src="/static/js/main.js?v=__DBS_BUILD__"></script>
+</body>
+</html>

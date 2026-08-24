@@ -1,0 +1,4 @@
+order_id,customer_id,item,amount
+9001,29485,device-z,999
+9002,60204,device-y,610
+9003,71355,device-x,455

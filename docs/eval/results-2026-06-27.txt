@@ -1,0 +1,63 @@
+Indexing sample_corpus/ with nomic-embed-text (passage-level)…
+  attention      47 passages
+  bert           48 passages
+  rag            48 passages
+  nist-csf       48 passages
+  nist-ai-rmf    48 passages
+  pride          48 passages
+  sherlock       48 passages
+  total: 335 passages indexed
+
+Running golden Q&A (retrieval shared, generation per model)…
+
+==============================================================================
+RETRIEVAL (model-independent, nomic-embed-text, passage-level, top-5):
+  mean precision@5 = 0.971   hit-rate@5 = 1.0   (n=7)
+==============================================================================
+GENERATION — llama3.2:3b:
+  key-fact recall = 0.857   faithfulness = 0.875   abstention-on-unanswerable = 1.0
+GENERATION — llama3.1:8b:
+  key-fact recall = 1.0   faithfulness = 1.0   abstention-on-unanswerable = 1.0
+==============================================================================
+
+PER-QUESTION:
+
+Q: What model architecture does 'Attention Is All You Need' propose?
+   retrieved=['attention', 'attention', 'attention', 'rag', 'attention']  precision@5=0.80  hit=True
+   [llama3.2:3b] kfr=1.00 faithful=True :: [1] proposes a new simple network architecture, the Transformer, based solely on attention mechanisms.
+   [llama3.1:8b] kfr=1.00 faithful=True :: The Transformer model architecture proposed in "Attention Is All You Need" is based solely on attention mechanisms, dispensing with recurrence and convolutions 
+
+Q: What does BERT stand for?
+   retrieved=['bert', 'bert', 'bert', 'bert', 'bert']  precision@5=1.00  hit=True
+   [llama3.2:3b] kfr=1.00 faithful=True :: BERT stands for Bidirectional Encoder Representations from Transformers. [1]
+   [llama3.1:8b] kfr=1.00 faithful=True :: BERT stands for Bidirectional Encoder Representations from Transformers [1].
+
+Q: What is Retrieval-Augmented Generation?
+   retrieved=['rag', 'rag', 'rag', 'rag', 'rag']  precision@5=1.00  hit=True
+   [llama3.2:3b] kfr=1.00 faithful=True :: According to [2], Retrieval-Augmented Generation (RAG) refers to a model that combines pre-trained parametric and non-parametric memory for language generation.
+   [llama3.1:8b] kfr=1.00 faithful=True :: Retrieval-Augmented Generation (RAG) is a model that combines pre-trained parametric and non-parametric memory for language generation. It consists of a pre-tra
+
+Q: What does the NIST Cybersecurity Framework help organizations manage?
+   retrieved=['nist-csf', 'nist-csf', 'nist-csf', 'nist-csf', 'nist-csf']  precision@5=1.00  hit=True
+   [llama3.2:3b] kfr=1.00 faithful=True :: The NIST Cybersecurity Framework helps organizations manage cybersecurity risks. [2]
+   [llama3.1:8b] kfr=1.00 faithful=True :: The NIST Cybersecurity Framework helps organizations manage their cybersecurity risks by providing a taxonomy of high-level cybersecurity outcomes that can be u
+
+Q: What is the goal of the NIST AI Risk Management Framework?
+   retrieved=['nist-ai-rmf', 'nist-ai-rmf', 'nist-ai-rmf', 'nist-ai-rmf', 'nist-ai-rmf']  precision@5=1.00  hit=True
+   [llama3.2:3b] kfr=1.00 faithful=True :: The goal of the NIST AI Risk Management Framework is to help organizations address the risks of AI systems in practice, as stated in [2]: "Part 2 comprises the 
+   [llama3.1:8b] kfr=1.00 faithful=True :: The goal of the NIST AI Risk Management Framework is to help organizations minimize potential negative impacts of AI systems while maximizing their positive imp
+
+Q: In the famous opening of Pride and Prejudice, what must a single man with a good fortune be in want of?
+   retrieved=['pride', 'pride', 'pride', 'pride', 'pride']  precision@5=1.00  hit=True
+   [llama3.2:3b] kfr=1.00 faithful=True :: According to [1], "It is a truth universally acknowledged, that a single man in possession of a good fortune must be in want of a wife."
+   [llama3.1:8b] kfr=1.00 faithful=True :: A single man with a good fortune must be in want of a wife (1).
+
+Q: Who is Sherlock Holmes's companion and the narrator of the stories?
+   retrieved=['sherlock', 'sherlock', 'sherlock', 'sherlock', 'sherlock']  precision@5=1.00  hit=True
+   [llama3.2:3b] kfr=0.00 faithful=False :: Irene Adler is Sherlock Holmes's companion and the narrator of the stories. [1]
+   [llama3.1:8b] kfr=1.00 faithful=True :: Sherlock Holmes's companion and the narrator of the stories is Dr. Watson. [1] mentions "To Sherlock Holmes she is always _the_ woman" but later refers to him a
+
+Q: What is DBSearch.AI's monthly subscription price?
+   retrieved=['nist-ai-rmf', 'nist-ai-rmf', 'rag', 'bert', 'rag']  precision@5=0.00  hit=False
+   [llama3.2:3b] kfr=1.00 faithful=True :: I don't have that information — never guess.
+   [llama3.1:8b] kfr=1.00 faithful=True :: I don't have that information.

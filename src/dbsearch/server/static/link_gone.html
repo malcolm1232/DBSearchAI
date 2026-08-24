@@ -1,0 +1,34 @@
+<!-- src/dbsearch/server/static/link_gone.html
+     The page a link that no longer opens anything renders (#605, ADR 0021). Served with a 404
+     by server/link_access.py, whose `_gone` note carries the reasoning.
+
+     THE RULE: this page is the SAME BYTES for every link that does not open, whatever the
+     reason, and it says nothing about which reason applies. The caller is anonymous by
+     construction, so a page that distinguished one from another would confirm to anybody
+     sweeping the token space that a particular value was once real.
+
+     That is why it carries no link, no name, no date and no reason, and why it runs no
+     JavaScript at all: there is no boot sequence that could fetch a fact and render a
+     difference into it. Making this page more helpful is the disclosure it exists to refuse.
+
+     Its comments, like the visitor page's, are served verbatim to strangers. Keep them about
+     the rule and free of anything internal. -->
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Link no longer available · DBSearch.AI</title>
+  <link rel="stylesheet" href="/static/css/tokens.css?v=__DBS_BUILD__">
+  <link rel="stylesheet" href="/static/css/app.css?v=__DBS_BUILD__">
+</head>
+<body>
+  <main class="visitor-gone">
+    <span class="brand">DBSearch<span class="dot">.AI</span></span>
+    <h1 class="visitor-title">This link is no longer available.</h1>
+    <p class="visitor-lede">If you still need it, ask whoever shared it with you to send a new
+      one.</p>
+  </main>
+</body>
+</html>

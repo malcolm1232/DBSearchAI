@@ -1,0 +1,14 @@
+# Instant seeded demo overlay — layer on top of the base compose:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+# Adds dev-auth (alice/bob switcher) + a seeded 2-doc corpus + a laptop-sized model.
+# NOT for production (dev-auth = no real auth). The base docker-compose.yml stays
+# production-shaped; these conveniences live ONLY here.
+services:
+  api:
+    environment:
+      DBSEARCH_DEV_AUTH: "1"
+      DBSEARCH_DEMO_SEED: "1"
+      OLLAMA_CHAT_MODEL: "qwen2.5:0.5b"
+  ollama-init:
+    environment:
+      OLLAMA_CHAT_MODEL: "qwen2.5:0.5b"

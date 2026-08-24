@@ -1,0 +1,56 @@
+[
+ {
+  "id": "B-013",
+  "q": "Whose retail tracking data is collected for the regression model besides SAP BI data?",
+  "gold": [
+   "AC Nielsen"
+  ],
+  "answer": "Whose retail tracking data is collected for the regression model besides SAP BI data?\n\nAC Nielsen Tracking Data and Brand Health Tracking (BHT) data are used in addition to SAP BI data.",
+  "disclosure": ""
+ },
+ {
+  "id": "A-008",
+  "q": "Which Australian stock ticker is named in the water investment notes?",
+  "gold": [
+   "D20.AX"
+  ],
+  "answer": "I do not have that information.",
+  "disclosure": ""
+ },
+ {
+  "id": "B-007",
+  "q": "From which system are vending machines extracted for the product mix dataset?",
+  "gold": [
+   "WIS"
+  ],
+  "answer": "From which system are vending machines extracted for the product mix dataset?\n\n[3] Talend notes: Take samples from nerine for Talend ESND system What distributor sells to outlet stores in ESND. Djaron leading Walburg vending machine business selling 100+ This Week Objective Next Thursday meeting: Product Mix optimization with Djaron This Talend.\n\nThe answer is the ESND system.",
+  "disclosure": ""
+ },
+ {
+  "id": "B-010",
+  "q": "Who granted access to the AIInsights Teams channel with the Microsoft training materials?",
+  "gold": [
+   "Yeu Shun Yee"
+  ],
+  "answer": "You (as indicated in passage [1]) granted access to the AIInsights Teams channel.",
+  "disclosure": "The first read of the retrieved passages came back empty; this answer is from a second, condensed pass over verbatim ext"
+ },
+ {
+  "id": "B-011",
+  "q": "What is Loo Say Hoo's job title in the staff directory?",
+  "gold": [
+   "Manager, Key Account"
+  ],
+  "answer": "I do not have that information.",
+  "disclosure": ""
+ },
+ {
+  "id": "B-012",
+  "q": "Which office location is Loo Say Hoo based at?",
+  "gold": [
+   "Shah Alam"
+  ],
+  "answer": "I do not have that information.",
+  "disclosure": ""
+ }
+]

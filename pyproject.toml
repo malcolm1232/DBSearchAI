@@ -1,0 +1,118 @@
+[project]
+name = "dbsearch"
+version = "0.0.0"
+description = "DBSearch.AI — permission-faithful enterprise knowledge search, in-tenant. See SKILL.md."
+requires-python = ">=3.10"
+dependencies = []
+# PEP 639: SPDX expression plus the file itself. Deliberately NOT the deprecated
+# "License :: OSI Approved ::" classifier, which PEP 639 forbids alongside this field.
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Indexing",
+]
+
+[project.scripts]
+dbsearch = "dbsearch.cli:main"
+
+[project.optional-dependencies]
+# `dbsearch compose up` from stores.yml (E9 CLI). .json manifests need nothing extra.
+cli = ["pyyaml>=6.0"]
+# Real Azure data-plane adapters (Phase 1b). Local/in-memory backend needs none of these.
+azure = [
+    "azure-identity>=1.16",
+    "azure-storage-blob>=12.19",
+    "azure-servicebus>=7.12",
+    "azure-search-documents>=11.5.1",
+    "azure-ai-documentintelligence>=1.0.0",
+    "azure-keyvault-secrets>=4.8",
+    "openai>=1.40",
+    "requests>=2.31",
+]
+# Swappable backends / integrations — each behind an existing port, install only what you use.
+vectordb = ["psycopg[binary]>=3.1", "pgvector>=0.2.5"]   # pgvector IndexPort (in-tenant)
+# azure_sql pushdown store: pymssql = service (SQL-auth) path; pyodbc + the system
+# msodbcsql18 driver = delegated query-as-user path (AAD access token, #131).
+azure-sql = ["pymssql>=2.2", "pyodbc>=5.0"]
+postgres = ["psycopg[binary]>=3.1"]                       # #155 Azure Database for PostgreSQL pushdown
+mysql = ["pymysql>=1.1"]                                   # #158 Azure Database for MySQL pushdown
+cosmos = ["azure-cosmos>=4.5"]                             # #160 Azure Cosmos DB (NoSQL) doc store
+# #654: the bigquery pushdown store. router/providers/bigquery.py imports this LAZILY inside
+# its client factory (LAW 7), which is right - but the dependency was never declared here and
+# never installed, so the canvas offered BigQuery as a droppable source, sign-in consented to
+# the bigquery scope, and the account panel said "Connected", while every probe died with
+# `No module named 'google'`. A lazy optional dep still has to be an option somebody can pick.
+gcp = ["google-cloud-bigquery>=3.11"]                      # #193/#654 BigQuery delegated pushdown
+aws = ["boto3>=1.28"]                                      # #666/ADR 0024 Redshift + aws_keys delegation (STS)
+llama = ["openai>=1.40"]                                  # LlmPort/EmbeddingPort via OpenAI-compatible server
+anthropic = ["anthropic>=0.40"]                           # #57 Claude Haiku/Sonnet for the two-phase draft
+graphql = ["strawberry-graphql>=0.230", "uvicorn>=0.30"] # GraphQL API over QueryService
+langchain = ["langchain-core>=0.3"]                       # permission-trimmed LangChain retriever
+# Self-host edition: runnable REST+GraphQL server over pgvector + Ollama (local LLaMA).
+#
+# fastapi/starlette/pydantic/uvicorn (#376): the production image is python:3.11-slim
+# with NO lockfile, so `docker compose build` always resolves the newest version each of
+# these allows - and with no upper bound that silently included a fastapi minor the
+# 141-suite battery had never run on. FastAPI >=0.140 made `include_router()` lazy
+# (`app.routes` holds an internal `_IncludedRouter` wrapper instead of the child
+# router's real routes), which broke tests/selftest_demo_scope_boundary.py's route-table
+# sweep - fixed there (see `_iter_routes`) rather than papered over here, because the
+# sweep's job (proving no endpoint is reachable without auth) has to hold on whatever
+# FastAPI the image actually runs. These bounds are the range actually exercised: floor =
+# the exact versions this suite has run on (dev: fastapi 0.128.8/starlette 0.49.3/
+# pydantic 2.12.5/uvicorn 0.39.0 on Python 3.9); ceiling = the exact versions the full
+# battery was verified green on INSIDE the built python:3.11-slim image (fastapi
+# 0.140.13/starlette 1.3.1/pydantic 2.13.4/uvicorn 0.51.0) - one minor/major band past
+# that is deliberately excluded until it is verified the same way, not guessed clean.
+server = [
+    "fastapi>=0.128.8,<0.141",
+    "starlette>=1.3.1,<2.0",
+    "pydantic>=2.12.5,<3.0",
+    "uvicorn[standard]>=0.39.0,<1.0",
+    "strawberry-graphql>=0.230",
+    "psycopg[binary]>=3.1", "pgvector>=0.2.5", "openai>=1.40", "pypdf>=4.0",
+    "python-pptx>=0.6.23", "python-docx>=1.1.0", "openpyxl>=3.1",
+    "python-multipart>=0.0.6",   # FastAPI Form/File parsing for /admin/upload (else boot RuntimeError)
+    # #775: Stripe billing. server/billing.py imports it LAZILY (LAW 7) so a self-hosted box
+    # with no billing never needs it, but it is declared HERE because the hosted deployment
+    # DOES offer an upgrade button - and #654 is the standing lesson that a lazily-imported
+    # dependency nobody declared means the UI offers what the server cannot do.
+    "stripe>=11.0",
+]
+# Browser-level end-to-end tests (Playwright + Chromium).
+e2e = ["playwright>=1.40"]
+# #686: everything `scripts/run_tests.py` needs beyond [server]. These were undeclared,
+# so the suite passed here and failed on a clean clone with ModuleNotFoundError for
+# pytest / anthropic / google - tests that hard-fail on a missing optional dep instead of
+# skipping. Declared so CI (and a contributor) can install the exact set.
+dev = ["pytest>=8.0", "anthropic>=0.40", "google-cloud-bigquery>=3.11", "httpx>=0.27"]
+# #319 (ADR 0010): encrypt user-supplied connection credentials at rest (self-host).
+secrets = ["cryptography>=42"]
+
+[build-system]
+requires = ["setuptools>=77"]   # PEP 639 `license`/`license-files` support
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Ship non-.py runtime data with the wheel/install, else `pip install` (the Docker
+# image) drops them and the app crashes at boot / can't serve the UI:
+#   - boundary/boundary.schema.json — the allowed-uplink contract loaded at startup (LAW 1)
+#   - server/static/** — the no-build ES-module SPA (html/css/js) served at /
+[tool.setuptools.package-data]
+dbsearch = [
+    "boundary/*.json",
+    "server/static/*",
+    "server/static/**/*",
+    # #322: the demo SQL connectors read bundled CSV fixtures. Without these in the wheel,
+    # `pip install` (the Docker image) drops them, azure-deals/storefront/warehouse/
+    # support-tickets fail to build with "No such file", and the demo silently loses every
+    # SQL store - the canvas still shows them, but they never route. Local dev only worked
+    # because it runs from src/ where the files are present on disk.
+    "router/demo/fixtures/*/*.csv",
+    "router/demo/fixtures/**/*",
+]

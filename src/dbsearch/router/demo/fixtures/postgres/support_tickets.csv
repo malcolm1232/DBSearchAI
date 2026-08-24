@@ -1,0 +1,7 @@
+id,region,priority,resolution_hours
+1,amer,high,4
+2,amer,low,12
+3,emea,high,3
+4,emea,low,20
+5,apac,high,6
+6,apac,low,10

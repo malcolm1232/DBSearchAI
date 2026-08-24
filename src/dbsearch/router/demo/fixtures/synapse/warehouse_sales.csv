@@ -1,0 +1,7 @@
+id,region,sku,units
+1,amer,SKU-A,120
+2,amer,SKU-B,80
+3,emea,SKU-A,95
+4,emea,SKU-C,60
+5,apac,SKU-B,110
+6,apac,SKU-A,140

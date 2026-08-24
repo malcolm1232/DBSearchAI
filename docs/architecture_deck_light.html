@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DBSearch.AI — Architecture</title>
+<style>
+  :root{
+    --bg:#f6f8fc; --panel:#ffffff; --ink:#0f1830; --muted:#54618a;
+    --line:#d7deef; --accent:#2f6bff; --accent2:#0f9e76; --warn:#b8860b;
+    --pink:#d23c87; --chip:#eef2fb;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .deck{height:100vh;width:100vw;overflow:hidden;position:relative}
+  .slide{
+    position:absolute;inset:0;display:none;flex-direction:column;
+    padding:54px 72px 80px;animation:fade .35s ease;
+  }
+  .slide.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  h1{font-size:48px;margin:0 0 6px;letter-spacing:-.5px}
+  h2{font-size:30px;margin:0 0 22px;letter-spacing:-.3px}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:2px;font-size:13px;text-transform:uppercase;margin-bottom:14px}
+  .sub{color:var(--muted);font-size:18px;line-height:1.5;max-width:1000px}
+  .big{font-size:26px;line-height:1.45;max-width:1050px}
+  .big b{color:var(--accent2)}
+  .pill{display:inline-block;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;color:var(--muted);margin:4px 6px 4px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+  .card h3{margin:0 0 10px;font-size:20px}
+  .card p,.card li{color:var(--muted);font-size:16px;line-height:1.5}
+  .card ul{margin:8px 0 0;padding-left:18px}
+  .tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:3px 9px;border-radius:6px}
+  .tag.az{background:rgba(91,140,255,.15);color:#9fc0ff;border:1px solid #2f4a8f}
+  .tag.pg{background:rgba(57,211,166,.15);color:#7af0cf;border:1px solid #1f6b54}
+  .tag.loc{background:rgba(255,206,91,.13);color:#ffd97a;border:1px solid #6d5a25}
+  .footer{position:absolute;left:72px;right:72px;bottom:26px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
+  .nav{position:absolute;bottom:22px;right:72px;display:flex;gap:8px}
+  .nav button{background:var(--chip);border:1px solid var(--line);color:var(--ink);border-radius:10px;width:40px;height:34px;font-size:16px;cursor:pointer}
+  .nav button:hover{border-color:var(--accent)}
+  .count{position:absolute;bottom:30px;left:72px;color:var(--muted);font-size:13px}
+
+  /* ---- diagram ---- */
+  .flow{display:flex;align-items:stretch;gap:0;margin-top:6px;flex-wrap:nowrap}
+  .stage{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 14px;min-width:0;position:relative}
+  .stage .n{font-size:12px;color:var(--accent);font-weight:700}
+  .stage h4{margin:6px 0 6px;font-size:17px}
+  .stage small{color:var(--muted);font-size:13px;line-height:1.4;display:block}
+  .arrow{display:flex;align-items:center;justify-content:center;width:42px;color:var(--muted);font-size:24px;flex:0 0 42px}
+  .queue{font-size:11px;color:var(--warn);text-align:center;margin-top:6px;font-family:ui-monospace,Menlo,monospace}
+  .lane{margin-top:18px}
+  .lane .lbl{font-size:13px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;font-weight:700}
+  .store{display:flex;gap:14px;margin-top:14px}
+  .store .box{flex:1;background:#0e1730;border:1px dashed var(--line);border-radius:12px;padding:14px 16px}
+  .store .box b{color:var(--ink);font-size:15px}
+  .store .box span{color:var(--muted);font-size:13px;display:block;margin-top:4px}
+  .trim{margin-top:16px;background:linear-gradient(90deg,rgba(255,122,182,.12),rgba(91,140,255,.10));border:1px solid #5a3a63;border-radius:14px;padding:16px 20px}
+  .trim b{color:var(--pink)}
+  .mono{font-family:ui-monospace,Menlo,monospace;font-size:14px;background:#0e1730;border:1px solid var(--line);border-radius:8px;padding:3px 8px;color:#bcd0ff}
+  .two{display:grid;grid-template-columns:1.1fr .9fr;gap:26px;align-items:start}
+  .legend{display:flex;gap:18px;margin-top:18px;flex-wrap:wrap}
+  .legend span{font-size:13px;color:var(--muted)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .note{color:var(--muted);font-size:14px;margin-top:14px}
+  .title-wrap{display:flex;flex-direction:column;justify-content:center;height:100%}
+  .brand{font-size:15px;color:var(--accent2);letter-spacing:3px;text-transform:uppercase;font-weight:700}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 TITLE -->
+  <section class="slide active">
+    <div class="title-wrap">
+      <div class="brand">DBSearch.AI</div>
+      <h1 style="font-size:60px;margin-top:14px">Permission-faithful<br>enterprise RAG</h1>
+      <p class="sub" style="margin-top:18px;font-size:22px">
+        Standard retrieval-augmented generation —<br>
+        but the answer <b style="color:var(--accent2)">never crosses a permission line</b>,
+        and the data <b style="color:var(--accent2)">never leaves the customer's cloud</b>.
+      </p>
+      <div style="margin-top:26px">
+        <span class="pill">Retrieval-Augmented Generation</span>
+        <span class="pill">Ports &amp; Adapters</span>
+        <span class="pill">Queue-driven ingest</span>
+        <span class="pill">Per-tenant data residency</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 THE SPINE -->
+  <section class="slide">
+    <div class="kicker">The mental model</div>
+    <h2>It's RAG you already know — two passes</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>① Ingest (offline)</h3>
+        <p style="font-size:18px;color:var(--ink)">document → <b style="color:var(--accent)">chunk</b> → <b style="color:var(--accent)">embed</b> → index</p>
+        <ul>
+          <li>1200-char sliding window, 150-char overlap</li>
+          <li><span class="mono">text-embedding-3-small</span> · 1536-dim</li>
+          <li>Vectors land in the index (HNSW)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>② Query (online)</h3>
+        <p style="font-size:18px;color:var(--ink)">question → embed → <b style="color:var(--accent)">vector search</b> → top-k → <b style="color:var(--accent)">LLM answer</b></p>
+        <ul>
+          <li>Same embedding model as ingest (must match)</li>
+          <li>Optional hybrid rerank (vector + keyword RRF)</li>
+          <li>LLM answers <i>only</i> from retrieved chunks</li>
+        </ul>
+      </div>
+    </div>
+    <div class="trim">
+      <b>The one twist that makes it a product →</b>
+      <span style="color:var(--ink)"> the vector search is filtered by <i>who's asking</i>. That's the next slide.</span>
+    </div>
+  </section>
+
+  <!-- 3 INGEST PIPELINE -->
+  <section class="slide">
+    <div class="kicker">Architecture · Ingestion</div>
+    <h2>4 async stages joined by durable queues</h2>
+    <div class="flow">
+      <div class="stage">
+        <div class="n">SOURCE</div>
+        <h4>Connector</h4>
+        <small>SharePoint · upload · folder. Pulls content + its ACLs.</small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STAGE 1</div>
+        <h4>Extract</h4>
+        <small>Text / OCR from PDFs, docs.</small>
+        <div class="queue">[parse]</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STAGE 2</div>
+        <h4>Chunk + Embed</h4>
+        <small>1200/150 window → 1536-dim vectors. ACL stamped on each chunk.</small>
+        <div class="queue">[chunk+embed]</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STAGE 3</div>
+        <h4>Index (upsert)</h4>
+        <small>Idempotent by chunk-id into the vector store.</small>
+        <div class="queue">[index]</div>
+      </div>
+    </div>
+    <div class="note">
+      <b style="color:var(--ink)">Why queues, not one script?</b> Each stage has a different bottleneck — OCR is CPU-bound,
+      embedding is API-quota-bound, indexing is I/O-bound. Decoupled = each <b style="color:var(--accent2)">scales independently</b>
+      and retries are safe (idempotent on <span class="mono">tenant + doc_id + content_hash</span>).
+    </div>
+  </section>
+
+  <!-- 4 QUERY + TRIM -->
+  <section class="slide">
+    <div class="kicker">Architecture · Retrieval</div>
+    <h2>The differentiator: permission lives <i>inside</i> the search</h2>
+    <div class="flow">
+      <div class="stage">
+        <div class="n">1</div><h4>Identity</h4>
+        <small>Expand user → all their groups<br><span class="mono">[alice, falcon-team, staff]</span></small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">2</div><h4>Embed question</h4>
+        <small>1536-dim query vector</small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage" style="border-color:#7a4a8f;box-shadow:0 0 0 1px #7a4a8f inset">
+        <div class="n" style="color:var(--pink)">3 · TRIM</div><h4>Filtered search</h4>
+        <small>top-k nearest <b style="color:var(--pink)">WHERE chunk.acl ∩ user.groups ≠ ∅</b></small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">4</div><h4>Generate</h4>
+        <small>LLM sees <b style="color:var(--accent2)">only authorized chunks</b> → answer + citations</small>
+      </div>
+    </div>
+    <div class="trim">
+      <b>Security is a property of the query, not a filter bolted on after.</b>
+      <span style="color:var(--ink)"> Each chunk carries its access-list denormalized next to its vector, so the check is one O(1) array-overlap.
+      Because the LLM only ever <i>receives</i> authorized text, it's structurally impossible to leak a doc the user can't see.</span>
+    </div>
+  </section>
+
+  <!-- 5 PLUGGABLE OPTIONS -->
+  <section class="slide">
+    <div class="kicker">Architecture · Ports &amp; Adapters</div>
+    <h2>Every backend is swappable — core logic never changes</h2>
+    <div class="grid2" style="grid-template-columns:1fr 1fr;gap:20px">
+
+      <div class="card">
+        <h3>🔍 Vector index</h3>
+        <div style="margin:8px 0">
+          <span class="tag az">AZURE</span> <b style="font-size:16px">Azure AI Search</b>
+          <p style="margin:4px 0 12px">Managed HNSW · hybrid vector+keyword · ACL trim via OData filter. <i>Production / cloud customers.</i></p>
+          <span class="tag pg">SELF-HOST</span> <b style="font-size:16px">Postgres + pgvector</b>
+          <p style="margin:4px 0 12px">HNSW index · ACL trim via <span class="mono">acl && user_groups</span> (GIN). <i>On-prem / air-gapped.</i></p>
+          <span class="tag loc">DEV</span> <b style="font-size:16px">In-memory index</b>
+          <p style="margin:4px 0 0">Pure-Python dict. <i>Tests &amp; local dev, zero deps.</i></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🧠 Models (embed + answer)</h3>
+        <div style="margin:8px 0">
+          <span class="tag az">AZURE</span> <b style="font-size:16px">Azure OpenAI</b>
+          <p style="margin:4px 0 12px"><span class="mono">text-embedding-3-small</span> + <span class="mono">gpt-4o-mini</span>. Default managed path.</p>
+          <span class="tag pg">IN-TENANT</span> <b style="font-size:16px">Llama (OpenAI-compatible)</b>
+          <p style="margin:4px 0 12px">Ollama / vLLM / TGI endpoint. <i>Inference stays inside the tenant — nothing leaves.</i></p>
+          <span class="tag loc">DEV</span> <b style="font-size:16px">Deterministic extractive</b>
+          <p style="margin:4px 0 0">No API calls — reproducible tests.</p>
+        </div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#9fc0ff"></span>Azure managed</span>
+      <span><span class="dot" style="background:#7af0cf"></span>Self-host / in-tenant</span>
+      <span><span class="dot" style="background:#ffd97a"></span>Dev &amp; test</span>
+      <span style="color:var(--ink)">Selected by one config flag — <span class="mono">backend = local | azure</span>, <span class="mono">index_backend</span>, <span class="mono">model_backend</span>.</span>
+    </div>
+  </section>
+
+  <!-- 6 DATA RESIDENCY + SHARDING -->
+  <section class="slide">
+    <div class="kicker">Architecture · Boundaries &amp; scale</div>
+    <h2>Two planes — and where sharding fits</h2>
+    <div class="two">
+      <div>
+        <div class="store">
+          <div class="box">
+            <b>🔒 Data plane — per customer tenant</b>
+            <span>Documents, embeddings, index, LLM calls, queries, answers. <b style="color:var(--accent2)">Everything stays here.</b></span>
+          </div>
+        </div>
+        <div class="store">
+          <div class="box" style="border-style:solid;border-color:#2f4a8f">
+            <b>📡 Control plane — yours</b>
+            <span>Metadata only: health, counts, token metering. <i>Never</i> doc text or query content. Can be switched off entirely (air-gapped edition).</span>
+          </div>
+        </div>
+        <p class="note">Isolation <b style="color:var(--ink)">by tenant</b> is the data-residency guarantee — there is no shared cross-customer index.</p>
+      </div>
+      <div class="card">
+        <h3>Where's the shard router?</h3>
+        <ul>
+          <li><b style="color:var(--ink)">Not inside retrieval.</b> The RAG loop stays simple.</li>
+          <li><b style="color:var(--ink)">Today:</b> one index per tenant — no sharding needed yet.</li>
+          <li><b style="color:var(--ink)">Roadmap:</b> a central orchestrator routes a query to the <i>right tenant's</i> data plane — routing by customer, not by vector range.</li>
+          <li>Within a tenant, scale comes from the <b style="color:var(--accent2)">queues auto-scaling on backpressure</b>, not sharding.</li>
+        </ul>
+        <p class="note" style="margin-top:12px">Honest framing for the interview: <i>built vs. designed.</i></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 CLOSE -->
+  <section class="slide">
+    <div class="kicker">The takeaway</div>
+    <h2>User need → architectural decision</h2>
+    <p class="big" style="margin-top:6px">
+      1. <b>It's RAG</b> — chunk, embed, retrieve, generate.<br><br>
+      2. The hard problem was <b>trust</b>: in an enterprise, an answer must respect <i>who is allowed to see what</i>.<br><br>
+      3. So we made <b>permission a property of the search itself</b>, and kept <b>all data inside the customer's tenant</b>.
+    </p>
+    <div style="margin-top:30px">
+      <span class="pill">Permission-faithful by construction</span>
+      <span class="pill">Cloud-portable (Azure · Postgres · in-tenant LLM)</span>
+      <span class="pill">Scales per-stage, isolates per-tenant</span>
+    </div>
+  </section>
+
+  <div class="count" id="count">1 / 7</div>
+  <div class="nav">
+    <button onclick="go(-1)">‹</button>
+    <button onclick="go(1)">›</button>
+  </div>
+  <div class="footer">
+    <span>DBSearch.AI — system architecture</span>
+    <span>← / → to navigate · F for fullscreen</span>
+  </div>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  function show(n){slides[i].classList.remove('active');i=(n+slides.length)%slides.length;slides[i].classList.add('active');document.getElementById('count').textContent=(i+1)+' / '+slides.length;}
+  function go(d){show(i+d);}
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' ')go(1);
+    else if(e.key==='ArrowLeft')go(-1);
+    else if(e.key.toLowerCase()==='f'){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();}
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,259 @@
+[
+ {
+  "id": "B-002",
+  "facts": [
+   "100PLUS"
+  ],
+  "answer": "I do not have that information.",
+  "chunks": [
+   {
+    "rank": 0,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 1,
+    "len": 1200,
+    "fact_at": 1070
+   },
+   {
+    "rank": 2,
+    "len": 1200,
+    "fact_at": 19
+   },
+   {
+    "rank": 3,
+    "len": 1200,
+    "fact_at": 809
+   },
+   {
+    "rank": 4,
+    "len": 1200,
+    "fact_at": null
+   }
+  ]
+ },
+ {
+  "id": "A-007",
+  "facts": [
+   "ZERO Unexplored"
+  ],
+  "answer": "I do not have that information.",
+  "chunks": [
+   {
+    "rank": 0,
+    "len": 1200,
+    "fact_at": 594
+   },
+   {
+    "rank": 1,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 2,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 3,
+    "len": 1200,
+    "fact_at": null
+   }
+  ]
+ },
+ {
+  "id": "A-008",
+  "facts": [
+   "D20.AX"
+  ],
+  "answer": "I do not have that information.",
+  "chunks": [
+   {
+    "rank": 0,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 1,
+    "len": 1199,
+    "fact_at": null
+   },
+   {
+    "rank": 2,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 3,
+    "len": 1074,
+    "fact_at": 308
+   },
+   {
+    "rank": 4,
+    "len": 1074,
+    "fact_at": 308
+   }
+  ]
+ },
+ {
+  "id": "B-010",
+  "facts": [
+   "Yeu Shun Yee"
+  ],
+  "answer": "I do not have that information.",
+  "chunks": [
+   {
+    "rank": 0,
+    "len": 1012,
+    "fact_at": 1000
+   },
+   {
+    "rank": 1,
+    "len": 1198,
+    "fact_at": null
+   },
+   {
+    "rank": 2,
+    "len": 1200,
+    "fact_at": null
+   }
+  ]
+ },
+ {
+  "id": "B-011",
+  "facts": [
+   "Manager, Key Account"
+  ],
+  "answer": "I do not have that information.",
+  "chunks": [
+   {
+    "rank": 0,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 1,
+    "len": 178,
+    "fact_at": null
+   },
+   {
+    "rank": 2,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 3,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 4,
+    "len": 1200,
+    "fact_at": null
+   }
+  ]
+ },
+ {
+  "id": "B-012",
+  "facts": [
+   "Shah Alam"
+  ],
+  "answer": "I do not have that information.",
+  "chunks": [
+   {
+    "rank": 0,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 1,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 2,
+    "len": 1200,
+    "fact_at": 22
+   },
+   {
+    "rank": 3,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 4,
+    "len": 1199,
+    "fact_at": null
+   }
+  ]
+ },
+ {
+  "id": "B-014",
+  "facts": [
+   "Letter of Guarantee"
+  ],
+  "answer": "I don't have that information.",
+  "chunks": [
+   {
+    "rank": 0,
+    "len": 1199,
+    "fact_at": 1055
+   },
+   {
+    "rank": 1,
+    "len": 1199,
+    "fact_at": 385
+   },
+   {
+    "rank": 2,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 3,
+    "len": 1198,
+    "fact_at": 4
+   },
+   {
+    "rank": 4,
+    "len": 1200,
+    "fact_at": null
+   }
+  ]
+ },
+ {
+  "id": "B-007",
+  "facts": [
+   "WIS"
+  ],
+  "answer": "From which system are vending machines extracted for the product mix dataset?\n\n[3] Talend notes: Tak",
+  "chunks": [
+   {
+    "rank": 0,
+    "len": 1200,
+    "fact_at": 799
+   },
+   {
+    "rank": 1,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 2,
+    "len": 1200,
+    "fact_at": null
+   },
+   {
+    "rank": 3,
+    "len": 1199,
+    "fact_at": null
+   },
+   {
+    "rank": 4,
+    "len": 882,
+    "fact_at": null
+   }
+  ]
+ }
+]

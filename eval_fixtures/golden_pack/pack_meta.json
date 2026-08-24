@@ -1,0 +1,68 @@
+{
+  "alignments": [
+    {
+      "must_appear_in_doc": "review-aurora",
+      "sql": "SELECT product FROM product_sales ORDER BY units DESC LIMIT 1"
+    }
+  ],
+  "generated_by": "claude-opus-5",
+  "generated_on": "2026-07-31",
+  "provenance": "synthetic",
+  "stores": {
+    "azure-deals": {
+      "business_unit": "sales",
+      "description": "Azure-hosted enterprise deal revenue by product SKU, plus a separate sales order log of customer orders and order amounts - overlapping order and customer vocabulary with storefront and warehouse.",
+      "kind": "sql",
+      "title": "Azure Deals"
+    },
+    "fin-ledger": {
+      "business_unit": "finance",
+      "description": "Restricted financial ledger: confidential deal memos, acquisition budgets, and revenue figures, accounting records - access limited to the deal team.",
+      "kind": "docs",
+      "title": "Finance Ledger"
+    },
+    "hr-haystack": {
+      "business_unit": "hr",
+      "description": "Internal team status memos and quarterly updates from Finance, Operations, Marketing, Engineering, Design, Legal, Product, Procurement, Facilities, and Customer Success - initiatives, town halls, budget reviews, vendor plans. A large filler/distractor corpus alongside the HR wiki; not itself HR policy content.",
+      "kind": "docs",
+      "title": "HR Haystack"
+    },
+    "hr-wiki": {
+      "business_unit": "hr",
+      "description": "Company HR policy library: parental leave and vacation entitlements, holiday calendar, benefits, onboarding program, expense and equipment policies, remote work, performance reviews, code of conduct, and security awareness training.",
+      "kind": "docs",
+      "title": "HR Wiki"
+    },
+    "storefront": {
+      "business_unit": "sales",
+      "description": "Retail storefront customer orders (order id, customer, item, amount) and per-product unit sales totals - overlapping order and customer vocabulary with warehouse fulfillment history.",
+      "kind": "sql",
+      "title": "Storefront Orders and Sales"
+    },
+    "support-tickets": {
+      "business_unit": "support",
+      "description": "Customer support ticket log tracking product defects and complaints (screen, battery, and hardware issues) by product SKU.",
+      "kind": "sql",
+      "title": "Support Tickets"
+    },
+    "synapse": {
+      "business_unit": "marketing",
+      "description": "Marketing spend and campaign performance data: paid search, paid social, social, email, and display advertising spend by region (US, EMEA, APAC) and channel.",
+      "kind": "sql",
+      "title": "Synapse Marketing Analytics"
+    },
+    "warehouse": {
+      "business_unit": "operations",
+      "description": "Warehouse fulfillment order history by customer (item, amount) - a separate ledger from storefront orders, sharing order and customer vocabulary with storefront.",
+      "kind": "sql",
+      "title": "Warehouse Order History"
+    },
+    "warehouse-reviews": {
+      "business_unit": "product",
+      "description": "Customer product review roundups written by the warehouse team, one per product (desk lamp, cable organizer, standing desk, bookshelf, office chair) - praised features, complaints, and unit sales volume commentary.",
+      "kind": "docs",
+      "title": "Warehouse Product Reviews"
+    }
+  },
+  "version": 2
+}

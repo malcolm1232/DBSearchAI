@@ -1,0 +1,26 @@
+{
+  "name": "dbsearch-tests",
+  "private": true,
+  "description": "jsdom for the Python suite's DOM guards. NOT an app - see the note below.",
+  "//": [
+    "#792. Fifteen selftest_*.py files drive a real surface through node, ten of them mounting",
+    "it in jsdom. They used to resolve jsdom out of `site/node_modules` - the Next.js MARKETING",
+    "SITE's devDependency tree - which is an undeclared coupling in both directions: the suite",
+    "depended on a package it never declared, and it only ever worked because somebody had run",
+    "`npm install` in site/ for unrelated frontend work. On a clean clone and in CI it was",
+    "simply absent, and every one of those guards returned a green skip.",
+    "",
+    "Declaring it here fixes the coupling rather than the symptom. It also sidesteps a real",
+    "defect in the site's own lockfile (picomatch 2.3.2 vs 4.0.5, tracked separately): npm 11",
+    "tolerates that mismatch and npm 10 refuses it, so `npm ci --prefix site` passed locally and",
+    "failed in CI. The suite should not be able to break for a reason that belongs to the",
+    "marketing site.",
+    "",
+    "jsdom is pinned EXACTLY, not with a caret. This is test infrastructure whose whole job is",
+    "to give the same answer twice; a minor bump that changes how a cascade or a media query",
+    "resolves would move guards without moving any code they guard."
+  ],
+  "devDependencies": {
+    "jsdom": "29.1.1"
+  }
+}

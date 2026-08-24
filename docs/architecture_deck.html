@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DBSearch.AI — Architecture</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a31; --ink:#e8edff; --muted:#9fb0d8;
+    --line:#2a3a63; --accent:#5b8cff; --accent2:#39d3a6; --warn:#ffce5b;
+    --pink:#ff7ab6; --chip:#1b2746;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .deck{height:100vh;width:100vw;overflow:hidden;position:relative}
+  .slide{
+    position:absolute;inset:0;display:none;flex-direction:column;
+    padding:54px 72px 80px;animation:fade .35s ease;
+  }
+  .slide.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  h1{font-size:48px;margin:0 0 6px;letter-spacing:-.5px}
+  h2{font-size:30px;margin:0 0 22px;letter-spacing:-.3px}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:2px;font-size:13px;text-transform:uppercase;margin-bottom:14px}
+  .sub{color:var(--muted);font-size:18px;line-height:1.5;max-width:1000px}
+  .big{font-size:26px;line-height:1.45;max-width:1050px}
+  .big b{color:var(--accent2)}
+  .pill{display:inline-block;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;color:var(--muted);margin:4px 6px 4px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+  .card h3{margin:0 0 10px;font-size:20px}
+  .card p,.card li{color:var(--muted);font-size:16px;line-height:1.5}
+  .card ul{margin:8px 0 0;padding-left:18px}
+  .tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:3px 9px;border-radius:6px}
+  .tag.az{background:rgba(91,140,255,.15);color:#9fc0ff;border:1px solid #2f4a8f}
+  .tag.pg{background:rgba(57,211,166,.15);color:#7af0cf;border:1px solid #1f6b54}
+  .tag.loc{background:rgba(255,206,91,.13);color:#ffd97a;border:1px solid #6d5a25}
+  .footer{position:absolute;left:72px;right:72px;bottom:26px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
+  .nav{position:absolute;bottom:22px;right:72px;display:flex;gap:8px}
+  .nav button{background:var(--chip);border:1px solid var(--line);color:var(--ink);border-radius:10px;width:40px;height:34px;font-size:16px;cursor:pointer}
+  .nav button:hover{border-color:var(--accent)}
+  .count{position:absolute;bottom:30px;left:72px;color:var(--muted);font-size:13px}
+
+  /* ---- diagram ---- */
+  .flow{display:flex;align-items:stretch;gap:0;margin-top:6px;flex-wrap:nowrap}
+  .stage{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 14px;min-width:0;position:relative}
+  .stage .n{font-size:12px;color:var(--accent);font-weight:700}
+  .stage h4{margin:6px 0 6px;font-size:17px}
+  .stage small{color:var(--muted);font-size:13px;line-height:1.4;display:block}
+  .arrow{display:flex;align-items:center;justify-content:center;width:42px;color:var(--muted);font-size:24px;flex:0 0 42px}
+  .queue{font-size:11px;color:var(--warn);text-align:center;margin-top:6px;font-family:ui-monospace,Menlo,monospace}
+  .lane{margin-top:18px}
+  .lane .lbl{font-size:13px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;font-weight:700}
+  .store{display:flex;gap:14px;margin-top:14px}
+  .store .box{flex:1;background:#0e1730;border:1px dashed var(--line);border-radius:12px;padding:14px 16px}
+  .store .box b{color:var(--ink);font-size:15px}
+  .store .box span{color:var(--muted);font-size:13px;display:block;margin-top:4px}
+  .trim{margin-top:16px;background:linear-gradient(90deg,rgba(255,122,182,.12),rgba(91,140,255,.10));border:1px solid #5a3a63;border-radius:14px;padding:16px 20px}
+  .trim b{color:var(--pink)}
+  .mono{font-family:ui-monospace,Menlo,monospace;font-size:14px;background:#0e1730;border:1px solid var(--line);border-radius:8px;padding:3px 8px;color:#bcd0ff}
+  .two{display:grid;grid-template-columns:1.1fr .9fr;gap:26px;align-items:start}
+  .legend{display:flex;gap:18px;margin-top:18px;flex-wrap:wrap}
+  .legend span{font-size:13px;color:var(--muted)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .note{color:var(--muted);font-size:14px;margin-top:14px}
+  .title-wrap{display:flex;flex-direction:column;justify-content:center;height:100%}
+  .brand{font-size:15px;color:var(--accent2);letter-spacing:3px;text-transform:uppercase;font-weight:700}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 TITLE -->
+  <section class="slide active">
+    <div class="title-wrap">
+      <div class="brand">DBSearch.AI</div>
+      <h1 style="font-size:60px;margin-top:14px">Permission-faithful<br>enterprise RAG</h1>
+      <p class="sub" style="margin-top:18px;font-size:22px">
+        Standard retrieval-augmented generation —<br>
+        but the answer <b style="color:var(--accent2)">never crosses a permission line</b>,
+        and the data <b style="color:var(--accent2)">never leaves the customer's cloud</b>.
+      </p>
+      <div style="margin-top:26px">
+        <span class="pill">Retrieval-Augmented Generation</span>
+        <span class="pill">Ports &amp; Adapters</span>
+        <span class="pill">Queue-driven ingest</span>
+        <span class="pill">Per-tenant data residency</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 THE SPINE -->
+  <section class="slide">
+    <div class="kicker">The mental model</div>
+    <h2>At its core it's RAG — split into two passes</h2>
+
+    <div class="lane">
+      <div class="lbl" style="color:var(--accent2)">① OFFLINE · build the library &nbsp;—&nbsp; done ahead of time, once per document</div>
+      <div class="flow" style="gap:0">
+        <div class="stage"><h4 style="margin:0">📄 Document</h4></div>
+        <div class="arrow">→</div>
+        <div class="stage"><h4 style="margin:0;color:var(--accent)">✂️ Chunk</h4><small>1200 chars · 150 overlap</small></div>
+        <div class="arrow">→</div>
+        <div class="stage"><h4 style="margin:0;color:var(--accent)">🔢 Embed</h4><small>text-embedding-3-small · 1536-d</small></div>
+        <div class="arrow">→</div>
+        <div class="stage"><h4 style="margin:0">🗂️ Index</h4><small>vectors stored (HNSW)</small></div>
+      </div>
+      <p class="note" style="margin-top:8px">Heavy, slow work — paid <b style="color:var(--ink)">once</b>. Like a librarian writing index cards for every book, after hours.</p>
+    </div>
+
+    <div class="lane" style="margin-top:20px">
+      <div class="lbl" style="color:var(--pink)">② ONLINE · answer at the desk &nbsp;—&nbsp; live, while the user waits (must be fast)</div>
+      <div class="flow" style="gap:0">
+        <div class="stage"><h4 style="margin:0">❓ Question</h4></div>
+        <div class="arrow">→</div>
+        <div class="stage"><h4 style="margin:0;color:var(--accent)">🔢 Embed</h4><small>just the question</small></div>
+        <div class="arrow">→</div>
+        <div class="stage"><h4 style="margin:0;color:var(--accent)">🔍 Search</h4><small>nearest chunks → top-k</small></div>
+        <div class="arrow">→</div>
+        <div class="stage"><h4 style="margin:0;color:var(--accent)">💬 Answer</h4><small>LLM · only from those chunks</small></div>
+      </div>
+      <p class="note" style="margin-top:8px">Fast — only the short question is embedded; the library is already built. The LLM answers <b style="color:var(--ink)">only</b> from what was retrieved.</p>
+    </div>
+
+    <div class="trim">
+      <b>Both passes share one tool — <span class="mono">embed</span> — and it must be the same model</b>
+      <span style="color:var(--ink)">, or "nearest" is meaningless. The one twist that makes it a product → the search is filtered by <i>who's asking</i>. (next slide)</span>
+    </div>
+  </section>
+
+  <!-- 3 INGEST PIPELINE -->
+  <section class="slide">
+    <div class="kicker">Architecture · Ingestion</div>
+    <h2>4 async stages joined by durable queues</h2>
+    <div class="flow">
+      <div class="stage">
+        <div class="n">SOURCE</div>
+        <h4>Connector</h4>
+        <small>SharePoint · upload · folder. Pulls content + its ACLs.</small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STAGE 1</div>
+        <h4>Extract</h4>
+        <small>Text / OCR from PDFs, docs.</small>
+        <div class="queue">[parse]</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STAGE 2</div>
+        <h4>Chunk + Embed</h4>
+        <small>1200/150 window → 1536-dim vectors. ACL stamped on each chunk.</small>
+        <div class="queue">[chunk+embed]</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STAGE 3</div>
+        <h4>Index (upsert)</h4>
+        <small>Idempotent by chunk-id into the vector store.</small>
+        <div class="queue">[index]</div>
+      </div>
+    </div>
+    <div class="note">
+      <b style="color:var(--ink)">Why queues, not one script?</b> Each stage has a different bottleneck — OCR is CPU-bound,
+      embedding is API-quota-bound, indexing is I/O-bound. Decoupled = each <b style="color:var(--accent2)">scales independently</b>
+      and retries are safe (idempotent on <span class="mono">tenant + doc_id + content_hash</span>).
+    </div>
+  </section>
+
+  <!-- 4 QUERY + TRIM -->
+  <section class="slide">
+    <div class="kicker">Architecture · Retrieval</div>
+    <h2>The differentiator: permission lives <i>inside</i> the search</h2>
+    <div class="flow">
+      <div class="stage">
+        <div class="n">1</div><h4>Identity</h4>
+        <small>Expand user → all their groups<br><span class="mono">[alice, falcon-team, staff]</span></small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">2</div><h4>Embed question</h4>
+        <small>1536-dim query vector</small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage" style="border-color:#7a4a8f;box-shadow:0 0 0 1px #7a4a8f inset">
+        <div class="n" style="color:var(--pink)">3 · TRIM</div><h4>Filtered search</h4>
+        <small>top-k nearest <b style="color:var(--pink)">WHERE chunk.acl ∩ user.groups ≠ ∅</b></small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">4</div><h4>Generate</h4>
+        <small>LLM sees <b style="color:var(--accent2)">only authorized chunks</b> → answer + citations</small>
+      </div>
+    </div>
+    <div class="trim">
+      <b>Security is a property of the query, not a filter bolted on after.</b>
+      <span style="color:var(--ink)"> Each chunk carries its access-list denormalized next to its vector, so the check is one O(1) array-overlap.
+      Because the LLM only ever <i>receives</i> authorized text, it's structurally impossible to leak a doc the user can't see.</span>
+    </div>
+  </section>
+
+  <!-- 4b WAY A vs WAY B -->
+  <section class="slide">
+    <div class="kicker">Architecture · Why "inside the query" matters</div>
+    <h2>Filter <i>after</i> retrieval vs. filter <i>inside</i> the search</h2>
+    <div class="grid2">
+      <div class="card" style="border-color:#6d3a3a">
+        <h3 style="color:#ff8a8a">❌ Way A — bolted on after</h3>
+        <div class="mono" style="display:block;padding:12px 14px;line-height:1.6;color:#ffc9c9;background:#1c1322;border-color:#5a2a2a;margin:6px 0 12px">
+          hits = search(vec, top_k=5)<br>
+          ok = [h for h in hits<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;if user_can_see(h)]&nbsp;&nbsp;<span style="color:#ff7a7a"># app code</span>
+        </div>
+        <ul>
+          <li><b style="color:#ffb0b0">Top-k starvation:</b> if 4 of 5 nearest are confidential, user gets 1 result — authorized matches got crowded out.</li>
+          <li><b style="color:#ffb0b0">One forgotten <span class="mono">if</span> = breach.</b> Every endpoint must remember the filter.</li>
+          <li><b style="color:#ffb0b0">Data already left the DB</b> into app memory before being discarded.</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:#2f6b54">
+        <h3 style="color:#7af0cf">✅ Way B — property of the query</h3>
+        <div class="mono" style="display:block;padding:12px 14px;line-height:1.6;color:#bff5e2;background:#0e1f1a;border-color:#1f6b54;margin:6px 0 12px">
+          hits = search(vec, top_k=5,<br>
+          &nbsp;&nbsp;where: chunk.acl<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;∩ user.groups ≠ ∅)
+        </div>
+        <ul>
+          <li><b style="color:#9af0d0">Always 5 best <i>authorized</i> matches</b> — ranks only among allowed chunks.</li>
+          <li><b style="color:#9af0d0">No bypass path exists</b> — filter is baked into the index call itself.</li>
+          <li><b style="color:#9af0d0">Unauthorized data never leaves the index</b> → LLM can't leak what it never received.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="trim">
+      <b>Cost?</b> <span style="color:var(--ink)">Each chunk stores its access-list <i>denormalized</i> beside its vector, so the check is an <span class="mono">O(1)</span> set-overlap — no JOIN. Azure AI Search does it via an OData filter; Postgres/pgvector via a GIN-indexed <span class="mono">&&</span> array-overlap.</span>
+    </div>
+  </section>
+
+  <!-- 5 PLUGGABLE OPTIONS -->
+  <section class="slide">
+    <div class="kicker">Architecture · Ports &amp; Adapters</div>
+    <h2>Every backend is swappable — core logic never changes</h2>
+    <div class="grid2" style="grid-template-columns:1fr 1fr;gap:20px">
+
+      <div class="card">
+        <h3>🔍 Vector index</h3>
+        <div style="margin:8px 0">
+          <span class="tag az">AZURE</span> <b style="font-size:16px">Azure AI Search</b>
+          <p style="margin:4px 0 12px">Managed HNSW · hybrid vector+keyword · ACL trim via OData filter. <i>Production / cloud customers.</i></p>
+          <span class="tag pg">SELF-HOST</span> <b style="font-size:16px">Postgres + pgvector</b>
+          <p style="margin:4px 0 12px">HNSW index · ACL trim via <span class="mono">acl && user_groups</span> (GIN). <i>On-prem / air-gapped.</i></p>
+          <span class="tag loc">DEV</span> <b style="font-size:16px">In-memory index</b>
+          <p style="margin:4px 0 0">Pure-Python dict. <i>Tests &amp; local dev, zero deps.</i></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🧠 Models (embed + answer)</h3>
+        <div style="margin:8px 0">
+          <span class="tag az">AZURE</span> <b style="font-size:16px">Azure OpenAI</b>
+          <p style="margin:4px 0 12px"><span class="mono">text-embedding-3-small</span> + <span class="mono">gpt-4o-mini</span>. Default managed path.</p>
+          <span class="tag pg">IN-TENANT</span> <b style="font-size:16px">Llama (OpenAI-compatible)</b>
+          <p style="margin:4px 0 12px">Ollama / vLLM / TGI endpoint. <i>Inference stays inside the tenant — nothing leaves.</i></p>
+          <span class="tag loc">DEV</span> <b style="font-size:16px">Deterministic extractive</b>
+          <p style="margin:4px 0 0">No API calls — reproducible tests.</p>
+        </div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#9fc0ff"></span>Azure managed</span>
+      <span><span class="dot" style="background:#7af0cf"></span>Self-host / in-tenant</span>
+      <span><span class="dot" style="background:#ffd97a"></span>Dev &amp; test</span>
+      <span style="color:var(--ink)">Selected by one config flag — <span class="mono">backend = local | azure</span>, <span class="mono">index_backend</span>, <span class="mono">model_backend</span>.</span>
+    </div>
+  </section>
+
+  <!-- 5b TECHNICAL STACK -->
+  <section class="slide">
+    <div class="kicker">Architecture · Technical stack</div>
+    <h2>Every box, named — Azure default vs. in-tenant alternative</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:15px;margin-top:4px">
+      <thead>
+        <tr style="text-align:left;color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase">
+          <th style="padding:8px 12px;width:22%">Layer</th>
+          <th style="padding:8px 12px;width:39%">Default (Azure managed)</th>
+          <th style="padding:8px 12px;width:39%">Self-host / in-tenant</th>
+        </tr>
+      </thead>
+      <tbody style="font-size:14.5px">
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Transport / API</td>
+          <td style="padding:9px 12px;color:var(--muted)" colspan="2"><span class="mono">FastAPI</span> (REST) + <span class="mono">Strawberry GraphQL</span> · identity from auth context, never a client arg</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Connectors</td>
+          <td style="padding:9px 12px;color:var(--muted)" colspan="2">SharePoint via <span class="mono">Microsoft Graph API</span> · file upload · folder scan</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Text / OCR</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="mono">Azure Document Intelligence</span></td>
+          <td style="padding:9px 12px;color:var(--muted)">Local plaintext / rich extractor</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Queue / messaging</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="mono">Azure Service Bus</span> topics</td>
+          <td style="padding:9px 12px;color:var(--muted)">In-memory queue (dev/test)</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Object store</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="mono">Azure Blob Storage</span> — raw / text / chunk / emb</td>
+          <td style="padding:9px 12px;color:var(--muted)">Filesystem store</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Embeddings</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="mono">Azure OpenAI</span> · text-embedding-3-small (1536-d)</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="mono">Llama</span> via Ollama / vLLM / TGI</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line);background:rgba(91,140,255,.05)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Vector index</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="tag az">DB</span> <span class="mono">Azure AI Search</span> — HNSW + hybrid + OData ACL filter</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="tag pg">DB</span> <span class="mono">Postgres + pgvector</span> — HNSW + GIN ACL filter</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Answer LLM</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="mono">Azure OpenAI</span> · gpt-4o-mini</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="mono">Llama 3.1</span> (OpenAI-compatible API)</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Identity / ACL</td>
+          <td style="padding:9px 12px;color:var(--muted)"><span class="mono">Microsoft Entra ID</span> via Graph — transitive group expansion</td>
+          <td style="padding:9px 12px;color:var(--muted)">Static principal map (dev)</td>
+        </tr>
+        <tr style="border-top:1px solid var(--line)">
+          <td style="padding:9px 12px;color:var(--ink);font-weight:600">Compute / deploy</td>
+          <td style="padding:9px 12px;color:var(--muted)" colspan="2"><span class="mono">AKS</span> workers per stage · one isolated data plane per customer tenant</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">Swapped via config — <span class="mono">backend</span> · <span class="mono">index_backend</span> · <span class="mono">model_backend</span> — behind ports/adapters, so core retrieval logic is identical across all three columns.</p>
+  </section>
+
+  <!-- 5c NAMED BLOCK DIAGRAM -->
+  <section class="slide">
+    <div class="kicker">Architecture · Block diagram</div>
+    <h2>How the named services connect (inside one tenant)</h2>
+    <div class="lane">
+      <div class="lbl" style="color:var(--accent)">Ingestion plane</div>
+      <div class="flow" style="gap:0">
+        <div class="stage"><div class="n">SOURCE</div><h4>Graph / Upload</h4><small>SharePoint, files — content + ACLs</small></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">Service Bus</div><h4>Doc Intelligence</h4><small>OCR → text → Blob</small></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">Service Bus</div><h4>Azure OpenAI<br>embed</h4><small>1536-d vectors → Blob</small></div>
+        <div class="arrow">→</div>
+        <div class="stage" style="border-color:#2f4a8f"><div class="n" style="color:var(--accent2)">Service Bus</div><h4>Upsert → Index</h4><small>AI Search <i>or</i> pgvector</small></div>
+      </div>
+    </div>
+    <div class="lane" style="margin-top:22px">
+      <div class="lbl" style="color:var(--pink)">Query plane</div>
+      <div class="flow" style="gap:0">
+        <div class="stage"><div class="n">Entra ID</div><h4>Expand groups</h4><small>user → principals[]</small></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">Azure OpenAI</div><h4>Embed question</h4><small>1536-d query vec</small></div>
+        <div class="arrow">→</div>
+        <div class="stage" style="border-color:#7a4a8f;box-shadow:0 0 0 1px #7a4a8f inset"><div class="n" style="color:var(--pink)">AI Search / pgvector</div><h4>ACL-filtered top-k</h4><small>WHERE acl ∩ principals</small></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">gpt-4o-mini</div><h4>Answer + cite</h4><small>authorized chunks only</small></div>
+      </div>
+    </div>
+    <div class="store" style="margin-top:18px">
+      <div class="box"><b>Shared: Azure Blob Storage</b><span>raw/ · text/ · chunk/ · emb/ — vectors in the index reference text blobs by key</span></div>
+      <div class="box" style="border-style:solid;border-color:#2f4a8f"><b>Runtime: AKS</b><span>each pipeline stage is its own autoscaling worker pool; FastAPI + GraphQL front the query plane</span></div>
+    </div>
+  </section>
+
+  <!-- 5d SELF-HOST / DOCKER -->
+  <section class="slide">
+    <div class="kicker">Architecture · Self-host on premises</div>
+    <h2>Run it on your own box — <span class="mono">docker compose up</span></h2>
+    <div class="two">
+      <div>
+        <div class="lbl" style="font-size:13px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:700;margin-bottom:10px">3 containers · one machine · nothing leaves</div>
+        <div class="flow" style="gap:0">
+          <div class="stage" style="border-color:#2f6b54">
+            <div class="n" style="color:var(--accent2)">CONTAINER</div>
+            <h4>db</h4>
+            <small><span class="mono">pgvector/pgvector:pg16</span><br>vector DB → <i>pgdata</i> volume on disk</small>
+          </div>
+          <div class="arrow">+</div>
+          <div class="stage" style="border-color:#2f6b54">
+            <div class="n" style="color:var(--accent2)">CONTAINER</div>
+            <h4>ollama</h4>
+            <small><span class="mono">ollama/ollama</span><br>AI models run local: nomic-embed + llama3.2</small>
+          </div>
+          <div class="arrow">+</div>
+          <div class="stage" style="border-color:#2f6b54">
+            <div class="n" style="color:var(--accent2)">CONTAINER</div>
+            <h4>api</h4>
+            <small>FastAPI + GraphQL<br>:8080 · files → <span class="mono">/data/objects</span></small>
+          </div>
+        </div>
+        <div class="mono" style="display:block;padding:14px 16px;line-height:1.7;margin-top:16px;background:#0e1730;border-color:var(--line);color:#bcd0ff">
+          <span style="color:#7af0cf">$</span> docker compose up -d --build<br>
+          <span style="color:#7af0cf">$</span> ./scripts/ollama_pull.sh&nbsp;&nbsp;<span style="color:#9fb0d8"># models, once</span><br>
+          <span style="color:#7af0cf">$</span> curl localhost:8080/health
+        </div>
+        <p class="note">Documents, vectors, and AI inference all stay on the customer's machine — no external cloud, no API egress. One flag picks it: <span class="mono">SELFHOST_BACKEND=pgvector-ollama</span>.</p>
+      </div>
+      <div class="card">
+        <h3>Same product, swapped plugs</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+          <thead><tr style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px">
+            <th style="text-align:left;padding:5px 6px"></th>
+            <th style="text-align:left;padding:5px 6px">Azure</th>
+            <th style="text-align:left;padding:5px 6px">Self-host</th>
+          </tr></thead>
+          <tbody style="color:var(--muted)">
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">Vector DB</td><td style="padding:6px">AI Search</td><td style="padding:6px;color:#9af0d0">pgvector</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">Models</td><td style="padding:6px">Azure OpenAI</td><td style="padding:6px;color:#9af0d0">Ollama (local)</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">Files</td><td style="padding:6px">Blob Storage</td><td style="padding:6px;color:#9af0d0">filesystem</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">Queues</td><td style="padding:6px">Service Bus</td><td style="padding:6px;color:#9af0d0">in-memory</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">Identity</td><td style="padding:6px">Entra ID</td><td style="padding:6px;color:#9af0d0">JSON map</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:14px">Honest limits: single-box <span class="mono">compose</span> (no K8s yet) · in-memory queue (sync ingest) · air-gap flag designed, not yet wired.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 DATA RESIDENCY + SHARDING -->
+  <section class="slide">
+    <div class="kicker">Architecture · Boundaries &amp; scale</div>
+    <h2>Two planes — and where sharding fits</h2>
+    <div class="two">
+      <div>
+        <div class="store">
+          <div class="box">
+            <b>🔒 Data plane — per customer tenant</b>
+            <span>Documents, embeddings, index, LLM calls, queries, answers. <b style="color:var(--accent2)">Everything stays here.</b></span>
+          </div>
+        </div>
+        <div class="store">
+          <div class="box" style="border-style:solid;border-color:#2f4a8f">
+            <b>📡 Control plane — yours</b>
+            <span>Metadata only: health, counts, token metering. <i>Never</i> doc text or query content. Can be switched off entirely (air-gapped edition).</span>
+          </div>
+        </div>
+        <p class="note">Isolation <b style="color:var(--ink)">by tenant</b> is the data-residency guarantee — there is no shared cross-customer index.</p>
+      </div>
+      <div class="card">
+        <h3>Where's the shard router?</h3>
+        <ul>
+          <li><b style="color:var(--ink)">Not inside retrieval.</b> The RAG loop stays simple.</li>
+          <li><b style="color:var(--ink)">Today:</b> one index per tenant — no sharding needed yet.</li>
+          <li><b style="color:var(--ink)">Roadmap:</b> a central orchestrator routes a query to the <i>right tenant's</i> data plane — routing by customer, not by vector range.</li>
+          <li>Within a tenant, scale comes from the <b style="color:var(--accent2)">queues auto-scaling on backpressure</b>, not sharding.</li>
+        </ul>
+        <p class="note" style="margin-top:12px">Honest framing for the interview: <i>built vs. designed.</i></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6b THE LAWS — 3 promises -->
+  <section class="slide">
+    <div class="kicker">How it's built · The LAWs</div>
+    <h2>10 rules — but they protect just 3 promises</h2>
+    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;gap:20px">
+      <div class="card" style="border-color:#5a3a63">
+        <h3 style="color:var(--pink)">🔒 Trust</h3>
+        <p style="color:var(--ink);font-size:17px;margin:2px 0 10px">Data stays home · you only see what you're allowed</p>
+        <p style="font-size:14px">The customer's documents never leave their building, and search can't surface anything you're not cleared for.</p>
+        <div style="margin-top:12px"><span class="pill">LAW 1</span><span class="pill">2</span><span class="pill">5</span><span class="pill">8</span></div>
+      </div>
+      <div class="card" style="border-color:#2f4a8f">
+        <h3 style="color:var(--accent)">⚙️ Scale &amp; flexibility</h3>
+        <p style="color:var(--ink);font-size:17px;margin:2px 0 10px">Handles huge load · runs anywhere</p>
+        <p style="font-size:14px">Heavy work runs in background stages; nothing is hard-wired to one cloud or one AI model.</p>
+        <div style="margin-top:12px"><span class="pill">LAW 4</span><span class="pill">6</span><span class="pill">7</span><span class="pill">9</span></div>
+      </div>
+      <div class="card" style="border-color:#2f6b54">
+        <h3 style="color:var(--accent2)">🛡️ Discipline</h3>
+        <p style="color:var(--ink);font-size:17px;margin:2px 0 10px">Don't break the rules to ship faster</p>
+        <p style="font-size:14px">Each source is isolated, and a checklist runs before every build — break a rule and it's redesigned, not shipped.</p>
+        <div style="margin-top:12px"><span class="pill">LAW 3</span><span class="pill">10</span></div>
+      </div>
+    </div>
+    <div class="trim">
+      <b>The line that matters:</b> <span style="color:var(--ink)">if a feature would break a rule, it gets <i>redesigned — never merged "for now."</i> The two things hardest to retrofit — security and data-residency — are enforced from the first line of code.</span>
+    </div>
+  </section>
+
+  <!-- 6c THE LAWS · detailed 1-3 -->
+  <section class="slide">
+    <div class="kicker">How it's built · The LAWs (1 of 3)</div>
+    <h2>The LAWs, in plain English — data &amp; permissions</h2>
+    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;gap:18px">
+      <div class="card" style="border-color:#5a3a63;padding:18px 20px">
+        <h3 style="color:var(--pink);font-size:18px;margin-bottom:8px">LAW 1 — Data residency</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">Customer document content — text, file bytes, even the embeddings derived from them — never leaves the customer's cloud. Only metadata (counts, health, cost) crosses out.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--pink)">Why:</b> enterprises won't buy if their confidential docs touch your servers. This is the whole trust pitch.</p>
+      </div>
+      <div class="card" style="border-color:#5a3a63;padding:18px 20px">
+        <h3 style="color:var(--pink);font-size:18px;margin-bottom:8px">LAW 2 — Permission-faithful retrieval</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">No query may ever return, log, cache, or leak a result the user isn't already allowed to see. The filter is mandatory and default-deny — no feature may bypass it.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--pink)">Why:</b> the differentiator. Default-deny means "if we're not sure you can see it, you can't."</p>
+      </div>
+      <div class="card" style="border-color:#2f6b54;padding:18px 20px">
+        <h3 style="color:var(--accent2);font-size:18px;margin-bottom:8px">LAW 3 — Isolated, idempotent connectors</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">Each data source (SharePoint, OneDrive…) is its own module with its own auth, rate-limiting, and crash recovery. One connector failing never corrupts the index or blocks others.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--accent2)">Why:</b> you're pulling from messy real-world systems; one flaky source shouldn't take down the product.</p>
+      </div>
+    </div>
+    <div class="legend" style="margin-top:18px">
+      <span><span class="dot" style="background:var(--pink)"></span>Trust</span>
+      <span><span class="dot" style="background:var(--accent)"></span>Scale &amp; flexibility</span>
+      <span><span class="dot" style="background:var(--accent2)"></span>Discipline</span>
+    </div>
+  </section>
+
+  <!-- 6d THE LAWS · detailed 4-6 -->
+  <section class="slide">
+    <div class="kicker">How it's built · The LAWs (2 of 3)</div>
+    <h2>The LAWs — scale &amp; resilience</h2>
+    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;gap:18px">
+      <div class="card" style="border-color:#2f4a8f;padding:18px 20px">
+        <h3 style="color:var(--accent);font-size:18px;margin-bottom:8px">LAW 4 — Async, queue-driven</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">Ingest → parse → chunk → embed → index are decoupled stages joined by durable queues. There is no "do it all in one request" path.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--accent)">Why:</b> built for 10TB and many tenants from day one — not retrofitted later.</p>
+      </div>
+      <div class="card" style="border-color:#5a3a63;padding:18px 20px">
+        <h3 style="color:var(--pink);font-size:18px;margin-bottom:8px">LAW 5 — Isolation by construction</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">One data plane per customer; no shared index across customers, ever. The tenant boundary is enforced at every layer.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--pink)">Why:</b> a cross-tenant leak would be catastrophic — so the architecture makes it impossible, not just filtered.</p>
+      </div>
+      <div class="card" style="border-color:#2f4a8f;padding:18px 20px">
+        <h3 style="color:var(--accent);font-size:18px;margin-bottom:8px">LAW 6 — Stateless compute</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">Parsers, embedders, and API hold no durable state in memory or local disk — state lives in the vector index / blob storage / Postgres.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--accent)">Why:</b> lets you scale workers out and do zero-downtime deploys — any worker can die and be replaced.</p>
+      </div>
+    </div>
+    <div class="legend" style="margin-top:18px">
+      <span><span class="dot" style="background:var(--pink)"></span>Trust</span>
+      <span><span class="dot" style="background:var(--accent)"></span>Scale &amp; flexibility</span>
+      <span><span class="dot" style="background:var(--accent2)"></span>Discipline</span>
+    </div>
+  </section>
+
+  <!-- 6e THE LAWS · detailed 7-9 -->
+  <section class="slide">
+    <div class="kicker">How it's built · The LAWs (3 of 3)</div>
+    <h2>The LAWs — portability &amp; visibility</h2>
+    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;gap:18px">
+      <div class="card" style="border-color:#2f4a8f;padding:18px 20px">
+        <h3 style="color:var(--accent);font-size:18px;margin-bottom:8px">LAW 7 — Ports &amp; adapters</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">Every cloud-specific capability (storage, queue, identity, LLM, vector index) sits behind an internal port with a per-cloud adapter. No Azure SDK calls leak into core logic.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--accent)">Why:</b> Azure today, AWS / GCP / self-host later — with no core rewrite.</p>
+      </div>
+      <div class="card" style="border-color:#5a3a63;padding:18px 20px">
+        <h3 style="color:var(--pink);font-size:18px;margin-bottom:8px">LAW 8 — Observability &amp; cost metering</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">Every stage emits structured events + per-tenant usage/cost counters — metadata only, never content.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--pink)">Why:</b> answer "is this customer healthy? what did they cost?" without ever looking at their data.</p>
+      </div>
+      <div class="card" style="border-color:#2f4a8f;padding:18px 20px">
+        <h3 style="color:var(--accent);font-size:18px;margin-bottom:8px">LAW 9 — Pluggable LLM / embedding</h3>
+        <p style="font-size:14px;color:var(--ink);line-height:1.5">Model providers sit behind an interface — Azure OpenAI by default, but a customer can bring their own in-tenant open model with no code change.</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:10px"><b style="color:var(--accent)">Why:</b> the Ollama / Llama self-host path — same code, different model.</p>
+      </div>
+    </div>
+    <div class="legend" style="margin-top:18px">
+      <span><span class="dot" style="background:var(--pink)"></span>Trust</span>
+      <span><span class="dot" style="background:var(--accent)"></span>Scale &amp; flexibility</span>
+      <span><span class="dot" style="background:var(--accent2)"></span>Discipline</span>
+    </div>
+  </section>
+
+  <!-- 6f LAW 1 — data residency flow -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 1 — Data residency</div>
+    <h2>Two worlds, one guarded door — content can't cross it</h2>
+    <div class="two" style="grid-template-columns:1.25fr .75fr;gap:26px;align-items:start">
+      <div>
+        <div class="store" style="margin-top:0">
+          <div class="box" style="border-style:solid;border-color:#2f6b54">
+            <b style="color:var(--accent2)">🏠 DATA PLANE — customer's own cloud tenant</b>
+            <span>Documents · file bytes · chunks · embeddings · the vector index · the LLM · queries · answers.<br><b style="color:var(--ink)">All of it lives and dies here. Never copied out.</b></span>
+          </div>
+        </div>
+        <div style="text-align:center;margin:10px 0 2px">
+          <div style="display:inline-block;background:linear-gradient(90deg,rgba(255,122,182,.14),rgba(91,140,255,.12));border:1px solid #7a4a8f;border-radius:12px;padding:10px 18px">
+            <span style="color:var(--pink);font-weight:700">⬇ Boundary Validator</span>
+            <span style="color:var(--muted);font-size:13px"> — the only door · runs <i>inside</i> the tenant, <i>before</i> anything is sent</span>
+          </div>
+        </div>
+        <div class="store" style="margin-top:8px">
+          <div class="box" style="border-style:solid;border-color:#2f4a8f">
+            <b style="color:var(--accent)">📡 CONTROL PLANE — your cloud</b>
+            <span>Health dashboards · billing meters · release pushes.<br><b style="color:var(--ink)">Receives counts, cost, timestamps. Never content.</b></span>
+          </div>
+        </div>
+        <p class="note" style="margin-top:14px">The validator checks <b style="color:var(--ink)">both ways</b>: an <b style="color:var(--accent2)">allow-list</b> (only 6 fields permitted; anything else rejected) <i>and</i> a <b style="color:var(--pink)">deny-list</b> (forbidden content keys, scanned at any depth). It throws before the send line is reached — and the control plane re-validates on arrival.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">What crosses vs. what never does</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px">
+          <thead><tr style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px">
+            <th style="text-align:left;padding:5px 6px;color:var(--accent2)">✅ Crosses</th>
+            <th style="text-align:left;padding:5px 6px;color:var(--pink)">❌ Never</th>
+          </tr></thead>
+          <tbody>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">docs_indexed: 12000</td><td style="padding:6px;color:var(--muted)">document text</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">llm_tokens (billing)</td><td style="padding:6px;color:var(--muted)">file names / titles</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">index_pct: 0.94</td><td style="padding:6px;color:var(--muted)">the question</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">opaque tenant_id, ts</td><td style="padding:6px;color:var(--muted)">the answer, embeddings</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:14px"><b style="color:var(--ink)">Air-gap = one flag.</b> <span class="mono">air_gapped=True</span> → uplink severed, nothing sent at all. Same code, no fork.</p>
+        <p class="note" style="margin-top:8px">Proven: tests try to smuggle a snippet / query / filename out → each must be <span class="mono">BoundaryViolation</span>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6g LAW 2 — permission-trim flow -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 2 — Permission-faithful retrieval</div>
+    <h2>Permission lives <i>inside</i> the search — enforced at 4 layers</h2>
+    <div class="two" style="grid-template-columns:1.18fr .82fr;gap:26px;align-items:start">
+      <div>
+        <div class="flow" style="gap:0">
+          <div class="stage"><div class="n">IDENTITY</div><h4 style="margin:2px 0">Expand groups</h4><small>bob → [bob, all-consultants]<br>from auth header, not the body</small></div>
+          <div class="arrow">→</div>
+          <div class="stage"><div class="n">EMBED</div><h4 style="margin:2px 0">Question → vector</h4><small>1536-dim</small></div>
+          <div class="arrow">→</div>
+          <div class="stage" style="border-color:#7a4a8f;box-shadow:0 0 0 1px #7a4a8f inset"><div class="n" style="color:var(--pink)">INDEX · TRIM</div><h4 style="margin:2px 0">Filtered search</h4><small>chunk.acl ∩ principals ≠ ∅<br>server-side · required arg</small></div>
+          <div class="arrow">→</div>
+          <div class="stage"><div class="n">LLM</div><h4 style="margin:2px 0">Answer + cite</h4><small>only authorized<br>chunks as context</small></div>
+        </div>
+        <p class="note" style="margin-top:14px">Rerank &amp; relevance-floor run <b style="color:var(--ink)">after</b> the trim and are <b style="color:var(--ink)">subtractive only</b> — they can drop chunks, never add an unauthorized one. The LLM physically never receives a doc Bob can't see, so it can't quote one.</p>
+        <div class="store" style="margin-top:14px">
+          <div class="box" style="border-style:solid;border-color:#2f6b54">
+            <b style="color:var(--accent2)">Default-deny</b>
+            <span>Each chunk carries its ACL (opaque OIDs), denormalized at ingest. Empty ACL matches <i>nobody</i> — "unknown = hidden," never "unknown = visible."</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">The filter, per backend</h3>
+        <p style="font-size:13px;color:var(--muted);margin:2px 0 8px"><span class="mono">IndexPort.search(vec, principals, k)</span> — <b style="color:var(--ink)">principals is required;</b> no overload omits it.</p>
+        <div class="mono" style="display:block;font-size:12px;line-height:1.6;padding:12px 14px;background:#0e1730;border-color:var(--line);color:#bcd0ff">
+          <span style="color:#9fc0ff">Azure AI Search</span> (OData)<br>
+          allowed_principals/any(<br>&nbsp;&nbsp;p: search.in(p,'bob,…',','))<br><br>
+          <span style="color:#7af0cf">pgvector</span> (SQL)<br>
+          WHERE allowed_principals<br>&nbsp;&nbsp;&amp;&amp; %s::text[]<br><br>
+          <span style="color:#ffd97a">in-memory</span> (Python)<br>
+          if not (acl &amp; principals):<br>&nbsp;&nbsp;continue&nbsp;&nbsp;<span style="color:#9fb0d8"># full stop</span>
+        </div>
+        <p class="note" style="margin-top:12px"><b style="color:var(--ink)">Proven:</b> Alice (on deal-team) sees the confidential doc; Bob, same question, does not — and can't impersonate her via a body field.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6h LAW 3 — connectors flow -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 3 — Connectors</div>
+    <h2>Isolated, idempotent, resumable — the messy real world, contained</h2>
+    <div class="two" style="grid-template-columns:1.15fr .85fr;gap:26px;align-items:start">
+      <div>
+        <div class="flow" style="gap:0">
+          <div class="stage"><div class="n">REGISTRY</div><h4 style="margin:2px 0">Saved cursor</h4><small>per-source state:<br>cursor · status</small></div>
+          <div class="arrow">→</div>
+          <div class="stage"><div class="n">① list_changes(cursor)</div><h4 style="margin:2px 0">Only what changed</h4><small>delta token / mtime<br>None = full crawl</small></div>
+          <div class="arrow">→</div>
+          <div class="stage"><div class="n">② fetch + ③ to_docs</div><h4 style="margin:2px 0">Bytes + ACL + hash</h4><small>fetch_acl is REQUIRED<br>(carries LAW 2)</small></div>
+          <div class="arrow">→</div>
+          <div class="stage" style="border-color:#2f4a8f"><div class="n" style="color:var(--accent)">④ pipeline → ⑤ index</div><h4 style="margin:2px 0">Upsert (idempotent)</h4><small>by chunk_id<br>replace, never dup</small></div>
+        </div>
+        <p class="note" style="margin-top:12px">New cursor is saved <b style="color:var(--ink)">only after success</b> → next run resumes from the last good point. On error → <span class="mono">record_error(source_id)</span> flips <b style="color:var(--ink)">only that one source</b>; the rest keep working.</p>
+        <div class="store" style="margin-top:12px">
+          <div class="box" style="border-style:solid;border-color:#2f6b54">
+            <b style="color:var(--accent2)">Durable resume + idempotent write = exactly-once in effect</b>
+            <span>A crashed sync just retries from the saved cursor; re-indexing the same chunk replaces it in place. No duplicates, no lost docs, no babysitting.</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">One interface · many sources</h3>
+        <div class="mono" style="display:block;font-size:12px;line-height:1.55;padding:12px 14px;background:#0e1730;border-color:var(--line);color:#bcd0ff;margin-bottom:12px">
+          ConnectorPort:<br>
+          &nbsp;authenticate()<br>
+          &nbsp;list_changes(cursor)<br>
+          &nbsp;fetch_content()<br>
+          &nbsp;fetch_acl()&nbsp;&nbsp;<span style="color:#ffd97a"># REQUIRED</span><br>
+          &nbsp;to_documents()
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px">
+            <th style="text-align:left;padding:4px 6px">Source</th><th style="text-align:left;padding:4px 6px">Cursor</th>
+          </tr></thead>
+          <tbody style="color:var(--muted)">
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">SharePoint (Graph)</td><td style="padding:6px">deltaLink</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">Folder</td><td style="padding:6px">file mtime</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px;color:var(--ink)">Upload</td><td style="padding:6px">— (single file)</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:12px"><b style="color:var(--ink)">Default-deny:</b> a file with no resolvable group is skipped, never indexed.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6i LAW 4 — async pipeline flow -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 4 — Async, queue-driven pipeline</div>
+    <h2>Four stages, joined only by durable queues — never one big request</h2>
+    <div class="two" style="grid-template-columns:1.18fr .82fr;gap:26px;align-items:start">
+      <div>
+        <div class="flow" style="gap:0">
+          <div class="stage"><div class="n">CONNECTOR</div><h4 style="margin:2px 0">Store + enqueue</h4><small>bytes→store · publish ref</small><div class="queue">[parse]</div></div>
+          <div class="arrow">→</div>
+          <div class="stage"><div class="n">PARSE / OCR</div><h4 style="margin:2px 0">Extract text</h4><small><b style="color:var(--ink)">CPU-bound</b></small><div class="queue">[chunkembed]</div></div>
+          <div class="arrow">→</div>
+          <div class="stage"><div class="n">CHUNK + EMBED</div><h4 style="margin:2px 0">Vectors</h4><small><b style="color:var(--ink)">API-rate-limited</b></small><div class="queue">[index]</div></div>
+          <div class="arrow">→</div>
+          <div class="stage"><div class="n">INDEX</div><h4 style="margin:2px 0">Upsert</h4><small><b style="color:var(--ink)">IO-bound</b> · idempotent</small></div>
+        </div>
+        <p class="note" style="margin-top:12px">Stages connect <b style="color:var(--ink)">only</b> through the queue — each consumes one topic, publishes the next. <b style="color:var(--ink)">Three different bottlenecks → each scales independently</b> (e.g. 8 parse · 2 embed · 4 index workers).</p>
+        <div class="store" style="margin-top:12px">
+          <div class="box" style="border-style:solid;border-color:#2f6b54">
+            <b style="color:var(--accent2)">Durable queue + idempotent stage = crash-safe</b>
+            <span>Worker dies mid-stage → unacked message re-appears → retried. Safe because upsert replaces by chunk_id. Spikes just deepen the queue (backpressure), never collapse.</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">Messages carry refs, not bytes</h3>
+        <div class="mono" style="display:block;font-size:12px;line-height:1.6;padding:12px 14px;background:#0e1730;border-color:var(--line);color:#bcd0ff;margin-bottom:12px">
+          store.put("raw/…", bytes)<br>&nbsp;&nbsp;→ KEY<br>
+          publish("parse",<br>&nbsp;&nbsp;{"document": {…ref}})<br><br>
+          <span style="color:#9fb0d8"># 10MB PDF stays in storage;</span><br>
+          <span style="color:#9fb0d8"># the queue carries a tiny JSON</span>
+        </div>
+        <p class="note">Small messages = fast queues, cheap retries — and content never leaves the tenant (LAW 1).</p>
+        <p class="note" style="margin-top:12px"><b style="color:var(--ink)">Adapters:</b> Azure Service Bus (durable, crash-safe) · in-memory (self-host, single-process). Same stage code.</p>
+        <p class="note" style="margin-top:10px"><b style="color:var(--ink)">Designed-not-wired:</b> queue-depth autoscaling is Phase 3+; self-host drains stages in one process.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6j LAW 5 — tenant isolation -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 5 — Multi-tenant isolation</div>
+    <h2>No shared index, ever — isolation is the deployment shape</h2>
+    <div class="two" style="grid-template-columns:1.05fr .95fr;gap:26px;align-items:start">
+      <div>
+        <div class="store" style="margin-top:0;gap:14px">
+          <div class="box" style="border-style:solid;border-color:#2f6b54">
+            <b style="color:var(--accent2)">🔒 CUSTOMER A — own subscription</b>
+            <span>own Blob · queues · AI Search index · LLM<br><span class="mono">DataPlaneAgent("acme")</span></span>
+          </div>
+          <div class="box" style="border-style:solid;border-color:#2f4a8f">
+            <b style="color:var(--accent)">🔒 CUSTOMER B — own subscription</b>
+            <span>own Blob · queues · AI Search index · LLM<br><span class="mono">DataPlaneAgent("globex")</span></span>
+          </div>
+        </div>
+        <div style="text-align:center;margin:8px 0 2px;color:var(--muted);font-size:13px">▼ metadata only · <b style="color:var(--ink)">per-tenant</b> ▼</div>
+        <div class="store" style="margin-top:2px">
+          <div class="box" style="border-style:solid;border-color:var(--line)">
+            <b style="color:var(--ink)">📡 CONTROL PLANE — your cloud (run once)</b>
+            <span><span class="mono">_metering["acme"]</span> · <span class="mono">_metering["globex"]</span> — <b style="color:var(--ink)">separate dicts, never aggregated, never content.</b></span>
+          </div>
+        </div>
+        <p class="note" style="margin-top:12px">There's <b style="color:var(--ink)">no shared index anywhere</b> — a cross-tenant leak isn't a bug you can write, there's nothing shared to leak from. One big customer's 10TB crawl runs in <i>their</i> resource group; it can't touch a small one.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">Two layers of isolation</h3>
+        <p style="font-size:14px;color:var(--ink);margin:4px 0 4px"><b style="color:var(--accent2)">① Primary — deployment (structural)</b></p>
+        <p style="font-size:13.5px;color:var(--muted);margin:0 0 12px">One resource group per tenant, in the customer's own subscription, via IaC. <span class="mono">// isolation by construction (Bicep)</span></p>
+        <p style="font-size:14px;color:var(--ink);margin:4px 0 4px"><b style="color:var(--accent)">② Defense-in-depth — <span class="mono">tenant_id</span> everywhere</b></p>
+        <div class="mono" style="display:block;font-size:11.5px;line-height:1.55;padding:10px 12px;background:#0e1730;border-color:var(--line);color:#bcd0ff;margin:2px 0 12px">
+          model:&nbsp;&nbsp;Document/Chunk.tenant_id<br>
+          keys:&nbsp;&nbsp;&nbsp;raw/{tenant}/… chunk/{tenant}/…<br>
+          index:&nbsp;&nbsp;(tenant_id, chunk_id)<br>
+          pg:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tenant_id text NOT NULL<br>
+          metering: _metering[tenant_id]
+        </div>
+        <p class="note"><b style="color:var(--ink)">Opaque (LAW 1):</b> tenant_id is a key, not a customer name — even billing can't tell who it is.</p>
+        <p class="note" style="margin-top:10px"><b style="color:var(--ink)">Proven:</b> 2 tenants → docs disjoint, metering separate; a 3rd runs fully air-gapped while others report.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6k LAW 6 — stateless compute -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 6 — Stateless compute</div>
+    <h2>Workers remember nothing — the store remembers everything</h2>
+    <div class="two" style="grid-template-columns:1.1fr .9fr;gap:26px;align-items:start">
+      <div>
+        <div class="store" style="margin-top:0">
+          <div class="box" style="border-style:solid;border-color:#2f4a8f">
+            <b style="color:var(--accent)">⚙️ STATELESS COMPUTE — replaceable, scale-out</b>
+            <span>parse · embed · index workers · the Query API<br><b style="color:var(--ink)">hold nothing between requests</b> — read input, do work, write out, forget</span>
+          </div>
+        </div>
+        <div style="text-align:center;margin:8px 0;color:var(--muted);font-size:13px">▲ read by ref &nbsp;·&nbsp; write by ref ▼</div>
+        <div class="store" style="margin-top:0">
+          <div class="box" style="border-style:solid;border-color:#2f6b54">
+            <b style="color:var(--accent2)">💾 DURABLE STATE — managed stores (the source of truth)</b>
+            <span>Object store (Azure Blob) · Vector index (AI Search / pgvector) · Postgres (sessions). <b style="color:var(--ink)">The only place state lives.</b></span>
+          </div>
+        </div>
+        <p class="note" style="margin-top:12px">Any worker can be killed mid-flight and replaced — nothing important was in it. That's what makes <b style="color:var(--ink)">scale-out + zero-downtime deploys a knob, not a redesign</b> (ADR 0005).</p>
+        <div class="mono" style="display:block;font-size:12px;line-height:1.55;padding:12px 14px;background:#0e1730;border-color:var(--line);color:#bcd0ff;margin-top:12px">
+          raw = store.get(content_ref)&nbsp;&nbsp;<span style="color:#9fb0d8"># read</span><br>
+          text = extract(raw)<br>
+          store.put("text/…", text)&nbsp;&nbsp;<span style="color:#9fb0d8"># write</span><br>
+          publish(next, {ref})&nbsp;&nbsp;<span style="color:#9fb0d8"># forget</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">What lives where</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:4px">
+          <thead><tr style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px">
+            <th style="text-align:left;padding:5px 6px;color:var(--accent)">🧠 Worker (ephemeral)</th><th style="text-align:left;padding:5px 6px;color:var(--accent2)">💾 Store (durable)</th>
+          </tr></thead>
+          <tbody style="color:var(--muted)">
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px">current message</td><td style="padding:6px;color:#9af0d0">bytes/text/chunks → Blob</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px">local vars, this job</td><td style="padding:6px;color:#9af0d0">vectors+ACL → index</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px">nothing carried on</td><td style="padding:6px;color:#9af0d0">history → Postgres</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:14px"><b style="color:var(--ink)">Honest dev exception:</b> in-memory adapters hold state in a dict — dev/test only. Self-host <span class="mono">:8090</span> memory backend <b style="color:var(--ink)">wipes on restart</b>; swap in Blob/pgvector (same ports) → durable, no code change.</p>
+        <p class="note" style="margin-top:10px"><b style="color:var(--ink)">Designed-not-wired:</b> conversation history is still in-memory; its Postgres home is a later slice.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6l LAW 7 — ports & adapters -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 7 — Ports &amp; adapters</div>
+    <h2>The core names no cloud — swapping one is a config flag</h2>
+    <div class="two" style="grid-template-columns:1.05fr .95fr;gap:26px;align-items:start">
+      <div>
+        <div class="store" style="margin-top:0">
+          <div class="box" style="border-style:solid;border-color:var(--line)">
+            <b style="color:var(--ink)">🧠 CORE — QueryService · pipeline</b>
+            <span>imports <b style="color:var(--ink)">only ports</b>, zero cloud SDKs. <span class="mono">grep "from azure" core/ → 0</span></span>
+          </div>
+        </div>
+        <div style="text-align:center;margin:8px 0;color:var(--accent);font-size:13px;font-weight:700">▼ THE SEAM · 9 PORTS ▼</div>
+        <div class="store" style="margin-top:0">
+          <div class="box" style="border-style:dashed;border-color:var(--accent)">
+            <span style="color:var(--muted)">ObjectStore · Queue · Index · Embedding · Llm · Identity · Extractor · Secrets · Connector — each just method signatures</span>
+          </div>
+        </div>
+        <div style="text-align:center;margin:8px 0;color:var(--muted);font-size:13px">▼ one config flag picks the adapter ▼</div>
+        <div class="flow" style="gap:0">
+          <div class="stage" style="border-color:#2f4a8f"><div class="n" style="color:var(--accent)">AZURE</div><small>Blob · Service Bus · AI Search · Azure OpenAI · Entra · DocIntel</small></div>
+          <div class="arrow">·</div>
+          <div class="stage" style="border-color:var(--warn)"><div class="n" style="color:var(--warn)">LOCAL</div><small>in-memory · filesystem (dev/test)</small></div>
+          <div class="arrow">·</div>
+          <div class="stage" style="border-color:#2f6b54"><div class="n" style="color:var(--accent2)">SELF-HOST/BYO</div><small>pgvector · Ollama/Llama · Anthropic · Groq</small></div>
+        </div>
+        <p class="note" style="margin-top:12px"><span class="mono">index_backend</span> swaps the vector DB · <span class="mono">model_backend</span> swaps the AI · <span class="mono">backend</span> swaps the whole stack — core untouched each time.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">Why hexagonal (ADR 0004)</h3>
+        <p style="font-size:14px;color:var(--muted);line-height:1.5">"The founder was forced into a full rewrite before by coupling decisions baked in too early. Cloud SDK calls scattered through business logic are exactly that trap." → <b style="color:var(--ink)">No cloud SDK may appear outside an adapter.</b></p>
+        <h3 style="font-size:16px;margin-top:16px">Proven swappable</h3>
+        <ul style="font-size:13.5px;color:var(--muted);line-height:1.5">
+          <li>one env var flips the model (llama3.1:8b → 3.2:3b); retrieval core unchanged</li>
+          <li>same pipeline runs with FolderConnector instead of SharePoint</li>
+          <li><b style="color:var(--ink)">your self-host build IS the proof</b> — memory-ollama runs the identical core on local Llama, not Azure</li>
+        </ul>
+        <p class="note" style="margin-top:14px"><b style="color:var(--ink)">Designed-not-wired:</b> only Azure + local + pgvector + Llama exist. AWS (SQS/S3/Bedrock) &amp; GCP are mapped in the ADR but not built — exit test = "add a 2nd cloud, zero core changes."</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6m LAW 8 — observability -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 8 — Observability &amp; cost metering</div>
+    <h2>"Healthy? what did it cost?" — answered in numbers, never content</h2>
+    <div class="two" style="grid-template-columns:1.1fr .9fr;gap:26px;align-items:start">
+      <div>
+        <div class="store" style="margin-top:0">
+          <div class="box" style="border-style:solid;border-color:var(--line)">
+            <b style="color:var(--ink)">EVERY operation emits a structured event (numbers only)</b>
+            <span><span class="mono">ingest.completed {docs_indexed, chunks_created}</span> · <span class="mono">query.served {queries_served, authorized_docs}</span> · source.synced · proposal.drafted · api_key.* · heartbeat<br>+ <span class="mono">cost{embed_tokens, llm_tokens}</span> + <span class="mono">health{index_pct, version}</span></span>
+          </div>
+        </div>
+        <div style="text-align:center;margin:8px 0;color:var(--pink);font-size:13px;font-weight:700">▼ SAME gate as LAW 1 — numbers only, no content ▼</div>
+        <div class="store" style="margin-top:0">
+          <div class="box" style="border-style:solid;border-color:#2f6b54">
+            <b style="color:var(--accent2)">CONTROL PLANE — accumulate per tenant</b>
+            <span class="mono" style="font-size:12.5px">_metering["acme"]["count:docs_indexed"] += 3<br>_metering["acme"]["cost:embed_tokens"] += 1500<br>_health["acme"] = {index_pct:1.0, version:"2.3.1"}</span>
+          </div>
+        </div>
+        <p class="note" style="margin-top:12px">Counts &amp; cost <b style="color:var(--ink)">accumulate</b> (<span class="mono">+=</span>); health is <b style="color:var(--ink)">last-write-wins</b> (current state). All keyed by tenant (LAW 5). Surfaced at <span class="mono">GET /admin/telemetry → {counts, cost, health}</span>.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">Measured vs never seen</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:4px">
+          <thead><tr style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px">
+            <th style="text-align:left;padding:5px 6px;color:var(--accent2)">📊 Emitted (numbers)</th><th style="text-align:left;padding:5px 6px;color:var(--pink)">🚫 Never</th>
+          </tr></thead>
+          <tbody style="color:var(--muted)">
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px">docs_indexed, queries_served</td><td style="padding:6px">the documents</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px">authorized_docs (a count)</td><td style="padding:6px">which docs / titles</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px">cost: embed/llm tokens</td><td style="padding:6px">the embedded text</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px">health: index_pct, version</td><td style="padding:6px">the query, the answer</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:14px"><b style="color:var(--ink)">The elegant part:</b> one validator enforces both "data stays in" (LAW 1) and "metrics are clean" (LAW 8). A metric is provably a number.</p>
+        <p class="note" style="margin-top:10px"><b style="color:var(--ink)">Proven:</b> counters accumulate per tenant (acme=3 vs globex=1); a snippet in telemetry → BoundaryViolation.</p>
+        <p class="note" style="margin-top:10px"><b style="color:var(--ink)">Designed-not-wired:</b> cost pipeline is wired, but adapters don't emit token counts yet; OTel/dashboards/alerting are future.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6n LAW 9 — pluggable models -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 9 — Pluggable LLM / embedding</div>
+    <h2>Bring your own model — run the whole AI stack in-tenant</h2>
+    <div class="two" style="grid-template-columns:1.1fr .9fr;gap:26px;align-items:start">
+      <div>
+        <div class="store" style="margin-top:0">
+          <div class="box" style="border-style:solid;border-color:var(--line)">
+            <b style="color:var(--ink)">CORE — names no provider · talks to 2 ports</b>
+            <span><span class="mono">EmbeddingPort.embed()</span> · <span class="mono">LlmPort.answer() / .answer_stream() / .condense_question()</span> — each only ever sees post-trim text (LAW 2)</span>
+          </div>
+        </div>
+        <div style="text-align:center;margin:8px 0;color:var(--muted);font-size:13px">▼ <span class="mono">DBSEARCH_MODEL_BACKEND=azure | llama</span> ▼</div>
+        <div class="flow" style="gap:0">
+          <div class="stage" style="border-color:#2f4a8f"><div class="n" style="color:var(--accent)">AZURE (default)</div><small>text-embedding-3-small + gpt-4o-mini</small></div>
+          <div class="arrow">·</div>
+          <div class="stage" style="border-color:#2f6b54"><div class="n" style="color:var(--accent2)">IN-TENANT Llama</div><small>Ollama/vLLM/TGI<br><b style="color:var(--ink)">nothing leaves ✅</b></small></div>
+          <div class="arrow">·</div>
+          <div class="stage" style="border-color:#6d5a25"><div class="n" style="color:var(--warn)">Anthropic · Groq</div><small>external API<br>content leaves ⚠ logged</small></div>
+        </div>
+        <p class="note" style="margin-top:12px"><b style="color:var(--ink)">base_url is the air-gap seam:</b> even Anthropic/Groq become residency-compliant by repointing <span class="mono">base_url</span> at an in-tenant gateway — same adapter, no code change. "Which provider" and "does data leave" are decoupled.</p>
+        <div class="store" style="margin-top:12px">
+          <div class="box" style="border-style:solid;border-color:var(--line)">
+            <b style="color:var(--ink)">Per-request model pick</b>
+            <span><span class="mono">resolve_chat_llm(req.model)</span> → choose from chat_models{llama3.2:3b · 8b · Claude · Groq}. <b style="color:var(--ink)">Retrieval + trim unchanged</b> whichever model answers.</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">The model seam</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px">
+          <thead><tr style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px">
+            <th style="text-align:left;padding:4px 5px">Port</th><th style="text-align:left;padding:4px 5px">Default</th><th style="text-align:left;padding:4px 5px">In-tenant</th>
+          </tr></thead>
+          <tbody style="color:var(--muted)">
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px 5px;color:var(--ink)">Embedding</td><td style="padding:6px 5px">Azure OpenAI (1536-d)</td><td style="padding:6px 5px;color:#9af0d0">Llama (768-d)</td></tr>
+            <tr style="border-top:1px solid var(--line)"><td style="padding:6px 5px;color:var(--ink)">LLM</td><td style="padding:6px 5px">gpt-4o-mini</td><td style="padding:6px 5px;color:#9af0d0">Llama / Anthropic / Groq</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:14px"><b style="color:var(--ink)">One real constraint:</b> the embedder's dimension must match the index (1536 vs 768) — so swapping the embedder means re-indexing. The LLM swaps freely, even per request.</p>
+        <p class="note" style="margin-top:10px"><b style="color:var(--ink)">Proven:</b> one env var swaps the model (8b→3b); retrieval core unchanged. Your <span class="mono">:8090</span> self-host runs in-memory retrieval + local Ollama — live LAW 9.</p>
+        <p class="note" style="margin-top:10px"><b style="color:var(--ink)">Designed-not-wired:</b> Azure ML wiring · per-token cost emission · mixed embedder/LLM pair (one flag bundles them).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6o LAW 9b — where the model runs -->
+  <section class="slide">
+    <div class="kicker">Deep dive · LAW 9 — Where the model runs</div>
+    <h2>"Nothing leaves" depends on the endpoint, not magic</h2>
+    <p class="sub" style="margin:-8px 0 18px;font-size:16px">Same adapter code in all three — only <span class="mono">base_url</span> changes. But the URL is exactly what decides whether your data leaves.</p>
+    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;gap:18px">
+      <div class="card" style="border-color:#2f6b54;padding:18px 20px">
+        <h3 style="color:var(--accent2);font-size:17px">① Self-host open model</h3>
+        <p style="font-size:13px;color:var(--muted);margin:6px 0">You run open weights (Llama/Mistral) on your own box.</p>
+        <div class="mono" style="display:block;font-size:11px;padding:8px 10px;background:#0e1730;border-color:var(--line);color:#9af0d0;margin:6px 0">base_url =<br>http://ollama.internal/v1</div>
+        <p style="font-size:13px;color:var(--ink)"><b>Data leaves? NO ✅</b></p>
+        <p style="font-size:12.5px;color:var(--muted);margin-top:4px">No provider at all — true air-gap. Prompts hit <i>your</i> machine.</p>
+      </div>
+      <div class="card" style="border-color:#6d3a3a;padding:18px 20px">
+        <h3 style="color:#ff8a8a;font-size:17px">② Vendor's public API</h3>
+        <p style="font-size:13px;color:var(--muted);margin:6px 0">You call the vendor's hosted endpoint directly.</p>
+        <div class="mono" style="display:block;font-size:11px;padding:8px 10px;background:#1c1322;border-color:#5a2a2a;color:#ffc9c9;margin:6px 0">base_url =<br>https://api.anthropic.com</div>
+        <p style="font-size:13px;color:var(--ink)"><b style="color:#ffb0b0">Data leaves? YES ⚠</b></p>
+        <p style="font-size:12.5px;color:var(--muted);margin-top:4px">The vendor <i>does</i> receive your content. <b style="color:var(--ink)">Dev/demo only</b> — code logs a LAW-1 warning.</p>
+      </div>
+      <div class="card" style="border-color:#2f4a8f;padding:18px 20px">
+        <h3 style="color:var(--accent);font-size:17px">③ Vendor model, your boundary</h3>
+        <p style="font-size:13px;color:var(--muted);margin:6px 0">Vendor's model deployed <i>inside</i> your cloud tenant.</p>
+        <div class="mono" style="display:block;font-size:11px;padding:8px 10px;background:#0e1730;border-color:#2f4a8f;color:#bcd0ff;margin:6px 0">base_url =<br>my-co.openai.azure.com</div>
+        <p style="font-size:13px;color:var(--ink)"><b style="color:#9fc0ff">Data leaves? NO ✅</b></p>
+        <p style="font-size:12.5px;color:var(--muted);margin-top:4px">e.g. Azure OpenAI in your subscription — stays in your compliance perimeter. <b style="color:var(--ink)">The default.</b></p>
+      </div>
+    </div>
+    <div class="trim">
+      <b>So "base_url is the seam" = code portability, not data magic.</b>
+      <span style="color:var(--ink)"> Moving a model in-boundary needs no code change — but you must actually move it in-boundary (① or ③). The raw public API (②) genuinely sends data to the provider. "Nothing leaves" only holds when the model runs somewhere you control.</span>
+    </div>
+  </section>
+
+  <!-- 7 CLOSE -->
+  <section class="slide">
+    <div class="kicker">The takeaway</div>
+    <h2>User need → architectural decision</h2>
+    <p class="big" style="margin-top:6px">
+      1. <b>It's RAG</b> — chunk, embed, retrieve, generate.<br><br>
+      2. The hard problem was <b>trust</b>: in an enterprise, an answer must respect <i>who is allowed to see what</i>.<br><br>
+      3. So we made <b>permission a property of the search itself</b>, and kept <b>all data inside the customer's tenant</b>.
+    </p>
+    <div style="margin-top:30px">
+      <span class="pill">Permission-faithful by construction</span>
+      <span class="pill">Cloud-portable (Azure · Postgres · in-tenant LLM)</span>
+      <span class="pill">Scales per-stage, isolates per-tenant</span>
+    </div>
+  </section>
+
+  <div class="count" id="count">1 / 7</div>
+  <div class="nav">
+    <button onclick="go(-1)">‹</button>
+    <button onclick="go(1)">›</button>
+  </div>
+  <div class="footer">
+    <span>DBSearch.AI — system architecture</span>
+    <span>← / → to navigate · F for fullscreen</span>
+  </div>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  function show(n){slides[i].classList.remove('active');i=(n+slides.length)%slides.length;slides[i].classList.add('active');document.getElementById('count').textContent=(i+1)+' / '+slides.length;}
+  function go(d){show(i+d);}
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' ')go(1);
+    else if(e.key==='ArrowLeft')go(-1);
+    else if(e.key.toLowerCase()==='f'){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();}
+  });
+</script>
+</body>
+</html>

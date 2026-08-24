@@ -1,0 +1,231 @@
+/* src/dbsearch/server/static/css/rail.css
+ *
+ * The ONE navigation rail, shared by the app shell and the canvas (#413).
+ *
+ * Before this, Ask/Chat/Draft lived in a left sidebar on the shell and in a top
+ * cluster on the canvas. Navigation that moves when you move between surfaces is
+ * the one thing navigation must never do, and having built the second copy myself
+ * I can report the obvious: two implementations drift immediately.
+ *
+ * DELIBERATELY SELF-CONTAINED. It does not read --sidebar-bg, --panel or any other
+ * host token, because the two pages name their tokens differently and coupling to
+ * either would make this un-shareable. Everything it needs is declared on .navrail,
+ * so a host can still override those five custom properties if it ever needs to.
+ */
+/* #634: THE RAIL'S SPACE IS RESERVED AND PAINTED BEFORE ANY JAVASCRIPT RUNS.
+ *
+ * THE DEFECT, measured on dbsearch.ai: moving to Connectors made the whole page blank for a
+ * moment, "as if it were hard refreshed". It IS a real document load - /canvas is a separate
+ * document, so router.js correctly declines to intercept it (it is not a SHELL_PATH) - but
+ * that is not what made it ugly. Neither document ships any rail MARKUP: the rail is built by
+ * `renderRail()` from a dynamically imported module, and the import is dynamic on purpose so
+ * the URL can carry the build id (#415). Timed on prod: the document finished loading at
+ * ~534ms and rail.js only arrived at ~716ms, so for ~180ms the page rendered with no sidebar
+ * at all and then one appeared. Cold cache is worse.
+ *
+ * THE FIX IS NOT TO HARD-CODE THE RAIL INTO BOTH PAGES. That is what #413 spent a session
+ * deleting: two copies of the navigation drift the moment either is touched, and rule 6 says
+ * there is exactly one definition. What is duplicated here is not the nav, it is its
+ * GEOMETRY - a width and a background colour - so the column can be held open and painted
+ * while the real rail is still downloading. When it lands it sits exactly where the band
+ * already is, so nothing moves and nothing flashes.
+ *
+ * `data-rail` is stamped on <html> by a tiny synchronous script in each document's <head>,
+ * from the SAME localStorage key the toggle writes - so a user who collapsed the rail gets a
+ * 60px band, not a 248px one that snaps narrower a moment later. `renderRail`'s toggle keeps
+ * it in step at runtime.
+ */
+:root { --rail-reserve: 248px; }
+:root[data-rail="icons"] { --rail-reserve: 60px; }
+
+/* The BAND. Only the paint lives here; app.css declares the grid columns using
+   --rail-reserve.
+
+   #643: `.app` was the canvas document's own grid and is gone with it - there is one host
+   now, not two. The split between paint (here) and columns (app.css) is kept: it exists so
+   the reserve stamped in <head> before first paint and the column that consumes it cannot
+   drift apart, which is what #634 was about. */
+.app-grid {
+  background-image:
+    linear-gradient(90deg, #16161a 0 var(--rail-reserve), transparent var(--rail-reserve));
+}
+.navrail {
+  --navrail-bg: #16161a;
+  --navrail-fg: #9a9aa2;
+  --navrail-fg-strong: #faf9f7;
+  --navrail-active-bg: #faf9f7;
+  --navrail-active-fg: #16161a;
+  --navrail-w: 248px;
+
+  width: var(--navrail-w);
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 12px;
+  overflow-y: auto;
+  background: var(--navrail-bg);
+  color: var(--navrail-fg);
+  /* On the light theme the ink block separates itself against paper. On dark the
+     rail and the canvas are within a few points of each other, so without this the
+     edge of the navigation disappears. */
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  .navrail { --navrail-bg: #0e0e10; }
+}
+:root[data-theme="dark"] .navrail { --navrail-bg: #0e0e10; }
+:root[data-theme="light"] .navrail { --navrail-bg: #16161a; }
+
+.navrail-brand {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 4px 10px 14px; text-decoration: none; color: var(--navrail-fg-strong);
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 21px; letter-spacing: -0.01em; white-space: nowrap;
+}
+.navrail-brand .ai { color: #22c55e; }
+
+.navrail-group {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+  color: #6b6b73; padding: 16px 10px 8px; white-space: nowrap;
+}
+
+.navrail-item {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13.5px; font-weight: 500; text-decoration: none;
+  color: var(--navrail-fg); padding: 9px 10px; border-radius: 999px;
+  white-space: nowrap; transition: background .12s, color .12s;
+}
+/* Stroke inherits the item's colour so the icon brightens with its label rather
+   than staying a fixed tint. */
+.navrail-item .navrail-ico {
+  width: 16px; height: 16px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.4;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.navrail-item:hover { background: rgba(255, 255, 255, .06); color: var(--navrail-fg-strong); }
+.navrail-item:focus-visible { outline: 2px solid var(--navrail-fg-strong); outline-offset: -2px; }
+.navrail-item.active {
+  background: var(--navrail-active-bg); color: var(--navrail-active-fg); font-weight: 600;
+}
+
+/* #631: the surface-content slot. It takes the rail's spare height and scrolls INSIDE
+   itself, so a hundred conversations never push the Collapse control or the permission note
+   off the bottom - the nav stays put however long the list gets, which is rule 6 again.
+   `min-height: 0` is what actually lets a flex child scroll rather than grow. */
+.navrail-slot {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 1px;
+}
+/* The 60px icon strip has no room for a thread title, and a column of identical bubble
+   icons would be a list of things you cannot tell apart. Collapsed hides the list, not the
+   navigation - which is exactly the trade the user opted into by collapsing. */
+.navrail--icons .navrail-slot { display: none; }
+
+.rail-slot-head { padding: 14px 0 6px; }
+.rail-new {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  font-family: inherit; font-size: 13px; font-weight: 500; text-align: left;
+  color: var(--navrail-fg-strong); background: none; cursor: pointer;
+  border: 1px solid rgba(250, 249, 247, .18); border-radius: 999px; padding: 8px 12px;
+  transition: background .12s, border-color .12s;
+}
+.rail-new:hover { background: rgba(255, 255, 255, .07); border-color: rgba(250, 249, 247, .3); }
+.rail-new:focus-visible { outline: 2px solid var(--navrail-fg-strong); outline-offset: -2px; }
+.rail-new .navrail-ico {
+  width: 16px; height: 16px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.4;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
+.rail-thread {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  font-family: inherit; font-size: 13px; text-align: left;
+  color: var(--navrail-fg); background: none; border: 0; cursor: pointer;
+  padding: 7px 10px; border-radius: 999px;
+  transition: background .12s, color .12s;
+}
+.rail-thread:hover { background: rgba(255, 255, 255, .06); color: var(--navrail-fg-strong); }
+.rail-thread:focus-visible { outline: 2px solid var(--navrail-fg-strong); outline-offset: -2px; }
+/* The open thread wears the SAME paper-on-ink treatment an active nav item does: one visual
+   language for "this is what you are looking at", wherever it appears in the rail. */
+.rail-thread.active {
+  background: var(--navrail-active-bg); color: var(--navrail-active-fg); font-weight: 600;
+}
+.rail-thread .navrail-ico {
+  width: 15px; height: 15px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.4;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+/* The question is the thread's name and gets all the room; it ellipses rather than wraps,
+   because a three-line row in a list of twenty is unscannable. */
+.rail-thread-title {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rail-thread-meta {
+  flex: none; font-size: 11px; opacity: .65; font-variant-numeric: tabular-nums;
+}
+
+.navrail-foot { flex: none; padding-top: 16px; }
+.navrail-foot .navrail-note {
+  background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 10px; padding: 11px 12px; font-size: 11.5px; line-height: 1.5;
+  color: var(--navrail-fg);
+}
+.navrail-toggle {
+  margin-top: 10px; width: 100%; display: flex; align-items: center; gap: 10px;
+  background: transparent; border: 0; cursor: pointer; color: #6b6b73;
+  font-family: inherit; font-size: 12px; padding: 9px 10px; border-radius: 999px;
+  transition: background .12s, color .12s;
+}
+.navrail-toggle:hover { background: rgba(255, 255, 255, .06); color: var(--navrail-fg-strong); }
+.navrail-toggle svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; }
+
+/* Collapsed: an icon strip. Same items, same order, same place - only the labels
+   go. The canvas opens in this state because it already spends its width on a
+   source panel and an inspector. */
+.navrail--icons { --navrail-w: 60px; padding: 16px 10px; }
+.navrail--icons .navrail-label,
+.navrail--icons .navrail-group,
+.navrail--icons .navrail-foot .navrail-note { display: none; }
+.navrail--icons .navrail-item { justify-content: center; padding: 10px; }
+.navrail--icons .navrail-brand {
+  justify-content: center; padding: 4px 0 14px; font-size: 20px;
+}
+.navrail--icons .navrail-brand .navrail-brand-full { display: none; }
+.navrail--icons .navrail-toggle { justify-content: center; padding: 10px; }
+.navrail:not(.navrail--icons) .navrail-brand .navrail-brand-short { display: none; }
+
+/* ONE mobile block, not two. There were two @media (max-width: 760px) rules in this file -
+   the band's and the rail's - which is a condition stated twice and a reader having to know
+   both exist. It also cost a test an hour: a parser looking for "the 760px block" found the
+   first one and reported the second one's rule missing. Same breakpoint, same block. */
+@media (max-width: 760px) {
+  /* The rail is a full-width horizontal strip here, so a left band would be a dark stripe
+     down the side of a page that has no sidebar, and a reserved column would be dead space. */
+  :root { --rail-reserve: 0px; }
+  .app-grid { background-image: none; }
+
+  .navrail {
+    --navrail-w: 100%;
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+    padding: 8px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .07);
+  }
+  .navrail-group, .navrail-foot, .navrail-toggle, .navrail-brand { display: none; }
+  /* #639: THE THREAD LIST TOO, and this was measured on a real 390px viewport rather than
+     reasoned about. On a phone the rail is a horizontal strip that WRAPS, so #631's slot -
+     New conversation, Recents, Shared with you - stacked into it and made the navigation
+     294px tall on an 844px screen. A third of the phone gone before the answer starts.
+     The mobile rail is already deliberately minimal (no brand, no group headers, no footer,
+     no collapse control); the thread list belongs in that same category. A phone user
+     therefore cannot reach old conversations from here, which is a real limitation and is
+     carded rather than pretended away. */
+  .navrail-slot { display: none; }
+  .navrail--icons { --navrail-w: 100%; }
+  .navrail--icons .navrail-label { display: inline; }
+}

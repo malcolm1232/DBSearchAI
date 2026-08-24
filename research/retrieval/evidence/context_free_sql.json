@@ -1,0 +1,51 @@
+{
+ "_provenance": {
+  "captured": "2026-07-31",
+  "method": "context-free subagent given ONLY the (schema, question) payload - no gold SQL, no repo access, no knowledge that this was a test",
+  "why": "the first ceiling run was written by an assistant that had already read the gold SQL and scored 18/18; that is contamination. This protocol measures what a model does when it genuinely cannot see the answer.",
+  "conditions": {
+   "names_only": "payload as it was BEFORE #468 - column names only",
+   "with_types": "payload as it is AFTER #468 - names and types"
+  }
+ },
+ "names_only": {
+  "B-001": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america') AND LOWER(REPLACE(REPLACE(channel,'_',' '),'-',' ')) LIKE '%paid%search%'",
+  "B-002": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america') AND LOWER(REPLACE(REPLACE(channel,'_',' '),'-',' ')) LIKE '%paid%search%'",
+  "B-003": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america') AND LOWER(REPLACE(REPLACE(channel,'_',' '),'-',' ')) LIKE '%paid%search%'",
+  "B-004": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america') AND LOWER(REPLACE(REPLACE(channel,'_',' '),'-',' ')) LIKE '%paid%search%'",
+  "B-005": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america') AND LOWER(REPLACE(REPLACE(channel,'_',' '),'-',' ')) LIKE '%paid%search%'",
+  "B-006": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america') AND LOWER(REPLACE(REPLACE(channel,'_',' '),'-',' ')) LIKE '%paid%search%'",
+  "B-001v1": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america') AND LOWER(REPLACE(REPLACE(channel,'_',' '),'-',' ')) LIKE '%paid%search%'",
+  "B-001v4": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america') AND LOWER(REPLACE(REPLACE(channel,'_',' '),'-',' ')) LIKE '%paid%search%'",
+  "E-001": "SELECT SUM(amount) AS total_sales FROM orders WHERE CAST(customer_id AS TEXT) = '29485'",
+  "E-002": "SELECT SUM(amount) AS total_sales FROM orders WHERE CAST(customer_id AS TEXT) = '29485'",
+  "E-003": "SELECT SUM(amount) AS total_sales FROM orders WHERE CAST(customer_id AS TEXT) = '29485'",
+  "E-001v1": "SELECT SUM(amount) AS total_sales FROM orders WHERE CAST(customer_id AS TEXT) = '29485'",
+  "F-001v1": "SELECT SUM(amount) AS total_spent FROM orders WHERE CAST(customer_id AS TEXT) = '29485'",
+  "E-004": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','america')",
+  "E-005": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE LOWER(TRIM(region)) LIKE '%emea%'",
+  "E-006": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE LOWER(TRIM(region)) LIKE '%apac%'",
+  "F-002": "SELECT COUNT(*) AS order_count FROM orders WHERE CAST(customer_id AS TEXT) = '29485'",
+  "F-004": "SELECT MIN(amount) AS smallest_order_amount FROM orders WHERE CAST(customer_id AS TEXT) = '29485'"
+ },
+ "with_types": {
+  "B-001": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us') AND REPLACE(REPLACE(LOWER(TRIM(channel)),'-',' '),'_',' ') LIKE '%paid search%'",
+  "B-002": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us') AND REPLACE(REPLACE(LOWER(TRIM(channel)),'-',' '),'_',' ') LIKE '%paid search%'",
+  "B-003": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us') AND REPLACE(REPLACE(LOWER(TRIM(channel)),'-',' '),'_',' ') LIKE '%paid search%'",
+  "B-004": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us') AND REPLACE(REPLACE(LOWER(TRIM(channel)),'-',' '),'_',' ') LIKE '%paid search%'",
+  "B-005": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us') AND REPLACE(REPLACE(LOWER(TRIM(channel)),'-',' '),'_',' ') LIKE '%paid search%'",
+  "B-006": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us') AND REPLACE(REPLACE(LOWER(TRIM(channel)),'-',' '),'_',' ') LIKE '%paid search%'",
+  "B-001v1": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us') AND REPLACE(REPLACE(LOWER(TRIM(channel)),'-',' '),'_',' ') LIKE '%paid search%'",
+  "B-001v4": "SELECT SUM(amount) AS total_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us') AND REPLACE(REPLACE(LOWER(TRIM(channel)),'-',' '),'_',' ') LIKE '%paid search%'",
+  "E-001": "SELECT SUM(amount) AS total_sales FROM orders WHERE customer_id = 29485",
+  "E-002": "SELECT SUM(amount) AS total_sales FROM orders WHERE customer_id = 29485",
+  "E-003": "SELECT SUM(amount) AS total_sales FROM orders WHERE customer_id = 29485",
+  "E-001v1": "SELECT SUM(amount) AS total_sales FROM orders WHERE customer_id = 29485",
+  "F-001v1": "SELECT SUM(amount) AS total_spent FROM orders WHERE customer_id = 29485",
+  "E-004": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('us','usa','u.s.','u.s.a.','united states','united states of america','north america - us')",
+  "E-005": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('emea','europe, middle east and africa','europe middle east africa')",
+  "E-006": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE LOWER(TRIM(region)) IN ('apac','asia pacific','asia-pacific','asia pac')",
+  "F-002": "SELECT COUNT(*) AS order_count FROM orders WHERE customer_id = 29485",
+  "F-004": "SELECT MIN(amount) AS smallest_order_amount FROM orders WHERE customer_id = 29485"
+ }
+}

@@ -1,0 +1,982 @@
+[
+ {
+  "id": "A-001",
+  "capability": "A",
+  "question": "How many orders reached delivered status?",
+  "gold": [
+   "2346"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM orders WHERE order_status='delivered'",
+  "status": 200,
+  "answer": "2346 orders reached delivered status.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.58 \u00b7 analytical/exact \u00b7 shares: delivered, orders"
+  ],
+  "sql": [
+   "SELECT COUNT(order_id) FROM orders WHERE LOWER(order_status) = 'delivered'"
+  ],
+  "cited_tables": [
+   "orders"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "A-002",
+  "capability": "A",
+  "question": "What is the total value of all credit card payments?",
+  "gold": [
+   "312244.36"
+  ],
+  "gold_sql": "SELECT SUM(payment_value) FROM payments WHERE payment_type='credit_card'",
+  "status": 200,
+  "answer": "The total value of all credit card payments is $312,244.36.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.46 \u00b7 analytical/exact \u00b7 shares: value"
+  ],
+  "sql": [
+   "SELECT SUM(payment_value) \nFROM payments \nWHERE payment_type = 'credit_card'"
+  ],
+  "cited_tables": [
+   "payments"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "A-003",
+  "capability": "A",
+  "question": "How many individual star ratings are recorded in total?",
+  "gold": [
+   "7422"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM ratings",
+  "status": 200,
+  "answer": "7422 individual star ratings are recorded in total.",
+  "routed": [
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.55 \u00b7 analytical/exact \u00b7 shares: ratings, star"
+  ],
+  "sql": [
+   "SELECT COUNT(rating) FROM ratings"
+  ],
+  "cited_tables": [
+   "ratings"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "A-004",
+  "capability": "A",
+  "question": "What is the highest single season salary on record?",
+  "gold": [
+   "32571000"
+  ],
+  "gold_sql": "SELECT MAX(salary) FROM salaries",
+  "status": 200,
+  "answer": "The highest single season salary on record is $32,571,000.",
+  "routed": [
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.61 \u00b7 analytical/exact \u00b7 shares: salary, season"
+  ],
+  "sql": [
+   "SELECT MAX(T1.salary) FROM salaries AS T1 INNER JOIN teams AS T2 ON T1.teamID = T2.teamID AND T1.yearID = T2.yearID"
+  ],
+  "cited_tables": [
+   "salaries"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "A-005",
+  "capability": "A",
+  "question": "How many players in the register bat left-handed?",
+  "gold": [
+   "478"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM players WHERE bats='L'",
+  "status": 200,
+  "answer": "478 players in the register bat left-handed.",
+  "routed": [
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.63 \u00b7 analytical/exact \u00b7 shares: players"
+  ],
+  "sql": [
+   "SELECT COUNT(playerID) FROM players WHERE bats = 'L'"
+  ],
+  "cited_tables": [
+   "players"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "A-006",
+  "capability": "A",
+  "question": "How many customers are based in the state of SP?",
+  "gold": [
+   "1003"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM customers WHERE customer_state='SP'",
+  "status": 200,
+  "answer": "There are 1003 customers based in the state of SP.",
+  "routed": [
+   "olist-catalog"
+  ],
+  "routed_why": [
+   "match 0.56 \u00b7 analytical/exact \u00b7 shares: customers, state"
+  ],
+  "sql": [
+   "SELECT COUNT(customer_id) FROM customers WHERE LOWER(customer_state) = 'sp'"
+  ],
+  "cited_tables": [
+   "customers"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "B-001",
+  "capability": "B",
+  "question": "What is the average review score buyers left on their orders?",
+  "gold": [
+   "3.79"
+  ],
+  "gold_sql": "SELECT AVG(review_score) FROM reviews",
+  "status": 200,
+  "answer": "The average review score buyers left on their orders is 3.79.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.61 \u00b7 analytical/exact \u00b7 shares: review, score, their"
+  ],
+  "sql": [
+   "SELECT AVG(review_score) FROM reviews"
+  ],
+  "cited_tables": [
+   "reviews"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "B-002",
+  "capability": "B",
+  "question": "What is the average star rating viewers gave to films?",
+  "gold": [
+   "3.44"
+  ],
+  "gold_sql": "SELECT AVG(rating) FROM ratings",
+  "status": 200,
+  "answer": "The average star rating viewers gave to films is 3.44.",
+  "routed": [
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.63 \u00b7 analytical/exact \u00b7 shares: rating, star"
+  ],
+  "sql": [
+   "SELECT AVG(rating) FROM ratings"
+  ],
+  "cited_tables": [
+   "ratings"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "B-003",
+  "capability": "B",
+  "question": "What is the highest number of home runs any club hit in the 2015 season?",
+  "gold": [
+   "232"
+  ],
+  "gold_sql": "SELECT MAX(HR) FROM teams WHERE yearID=2015",
+  "status": 200,
+  "answer": "The highest number of home runs any club hit in the 2015 season is 232.",
+  "routed": [
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.65 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT MAX(HR) FROM teams WHERE yearID = 2015"
+  ],
+  "cited_tables": [
+   "teams"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "B-004",
+  "capability": "B",
+  "question": "How many distinct product categories does the catalogue contain?",
+  "gold": [
+   "63"
+  ],
+  "gold_sql": "SELECT COUNT(DISTINCT product_category_name) FROM products",
+  "status": 200,
+  "answer": "The catalogue contains 62 distinct product categories.",
+  "routed": [
+   "olist-catalog",
+   "movielens",
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.65 \u00b7 analytical/exact \u00b7 shares: categories, product",
+   "match 0.61 \u00b7 analytical/exact \u00b7 shares: catalogue",
+   "match 0.51 \u00b7 analytical/exact \u00b7 shares: product"
+  ],
+  "sql": [
+   "SELECT COUNT(DISTINCT T1.product_category_name) FROM categories AS T1 INNER JOIN products AS T2 ON T1.product_category_name = T2.product_category_name",
+   "SELECT COUNT(DISTINCT genres) FROM movies",
+   "SELECT COUNT(*) AS count FROM order_items"
+  ],
+  "cited_tables": [
+   "categories",
+   "movies",
+   "order_items"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "B-005",
+  "capability": "B",
+  "question": "What is the total freight charged across every order line?",
+  "gold": [
+   "57488.38"
+  ],
+  "gold_sql": "SELECT SUM(freight_value) FROM order_items",
+  "status": 200,
+  "answer": "The total freight charged across every order line is $57,488.38.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.61 \u00b7 analytical/exact \u00b7 shares: freight, order"
+  ],
+  "sql": [
+   "SELECT SUM(order_items.freight_value) FROM order_items"
+  ],
+  "cited_tables": [
+   "order_items"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "B-006",
+  "capability": "B",
+  "question": "How many home runs were hit in the 2015 season in total?",
+  "gold": [
+   "4909"
+  ],
+  "gold_sql": "SELECT SUM(HR) FROM batting WHERE yearID=2015",
+  "status": 200,
+  "answer": "4909 home runs were hit in the 2015 season.",
+  "routed": [
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.63 \u00b7 analytical/exact \u00b7 shares: season"
+  ],
+  "sql": [
+   "SELECT SUM(HR) FROM batting WHERE yearID = 2015"
+  ],
+  "cited_tables": [
+   "batting"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "C-001",
+  "capability": "C",
+  "question": "What is the total item price across orders that were paid by boleto?",
+  "gold": [
+   "52839.87"
+  ],
+  "gold_sql": "SELECT SUM(i.price) FROM order_items i JOIN payments p ON p.order_id=i.order_id WHERE p.payment_type='boleto'",
+  "status": 200,
+  "answer": "The total item price across orders that were paid by boleto is $52,839.87.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.65 \u00b7 analytical/exact \u00b7 shares: item, orders, price"
+  ],
+  "sql": [
+   "SELECT SUM(T1.price) FROM order_items AS T1 INNER JOIN payments AS T2 ON T1.order_id = T2.order_id WHERE LOWER(T2.payment_type) = 'boleto'"
+  ],
+  "cited_tables": [
+   "order_items"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "C-002",
+  "capability": "C",
+  "question": "What is the average rating of the film Toy Story (1995)?",
+  "gold": [
+   "3.86"
+  ],
+  "gold_sql": "SELECT AVG(r.rating) FROM ratings r JOIN movies m ON m.movieId=r.movieId WHERE m.title='Toy Story (1995)'",
+  "status": 200,
+  "answer": "The average rating of the film Toy Story (1995) is 3.86.",
+  "routed": [
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.55 \u00b7 analytical/exact \u00b7 shares: film, rating"
+  ],
+  "sql": [
+   "SELECT AVG(T1.rating) FROM ratings AS T1 INNER JOIN movies AS T2 ON T1.movieId = T2.movieId WHERE LOWER(T2.title) = 'toy story (1995)'"
+  ],
+  "cited_tables": [
+   "ratings"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "C-003",
+  "capability": "C",
+  "question": "What was the total payroll of the Boston Red Sox in the 2015 season?",
+  "gold": [
+   "181103400"
+  ],
+  "gold_sql": "SELECT SUM(s.salary) FROM salaries s JOIN teams t ON t.teamID=s.teamID AND t.yearID=s.yearID WHERE t.name='Boston Red Sox' AND s.yearID=2015",
+  "status": 200,
+  "answer": "The total payroll of the Boston Red Sox in the 2015 season was $181,103,400.",
+  "routed": [
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.64 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT SUM(T2.salary) FROM teams AS T1 INNER JOIN salaries AS T2 ON T1.teamID = T2.teamID AND T1.yearID = T2.yearID WHERE T1.name = 'Boston Red Sox' AND T1.yearID = 2015"
+  ],
+  "cited_tables": [
+   "teams"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "C-004",
+  "capability": "C",
+  "question": "Which film received the greatest number of ratings?",
+  "gold": [
+   "Forrest Gump"
+  ],
+  "gold_sql": "",
+  "status": 200,
+  "answer": "Forrest Gump (1994) received the greatest number of ratings.",
+  "routed": [
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.58 \u00b7 analytical/exact \u00b7 shares: film"
+  ],
+  "sql": [
+   "SELECT title FROM movies INNER JOIN ratings ON movies.movieId = ratings.movieId GROUP BY movies.title ORDER BY COUNT(ratings.rating) DESC LIMIT 1"
+  ],
+  "cited_tables": [
+   "movies"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "C-005",
+  "capability": "C",
+  "question": "What is the average payment value on orders that were cancelled?",
+  "gold": [
+   "109.73"
+  ],
+  "gold_sql": "SELECT AVG(p.payment_value) FROM payments p JOIN orders o ON o.order_id=p.order_id WHERE o.order_status='canceled'",
+  "status": 200,
+  "answer": "The average payment value on orders that were cancelled is $109.73.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.58 \u00b7 analytical/exact \u00b7 shares: orders, payment, value"
+  ],
+  "sql": [
+   "SELECT AVG(payment_value) FROM payments AS T1 INNER JOIN orders AS T2 ON T1.order_id = T2.order_id WHERE T2.order_status = 'canceled'"
+  ],
+  "cited_tables": [
+   "payments"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "D-001",
+  "capability": "D",
+  "question": "What is the total item revenue from customers located in the state of RJ?",
+  "gold": [
+   "39180.04"
+  ],
+  "gold_sql": "SELECT SUM(i.price) FROM order_items i JOIN orders o ON o.order_id=i.order_id JOIN customers c ON c.customer_id=o.customer_id WHERE c.customer_state='RJ'",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-catalog",
+   "olist-orders",
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.55 \u00b7 analytical/exact \u00b7 shares: customers, state",
+   "match 0.54 \u00b7 analytical/exact \u00b7 shares: item",
+   "match 0.52 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT SUM(product_category_name) AS total_product_category_name FROM categories"
+  ],
+  "cited_tables": [
+   "categories"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "D-002",
+  "capability": "D",
+  "question": "How many order lines were for products in the health and beauty category?",
+  "gold": [
+   "213"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM order_items i JOIN products p ON p.product_id=i.product_id JOIN categories c ON c.product_category_name=p.product_category_name WHERE c.product_category_name_english='health_beauty'",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-orders",
+   "olist-catalog"
+  ],
+  "routed_why": [
+   "match 0.60 \u00b7 analytical/exact \u00b7 shares: order",
+   "match 0.52 \u00b7 analytical/exact \u00b7 shares: category"
+  ],
+  "sql": [
+   "SELECT COUNT(*) AS count FROM order_items",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5"
+  ],
+  "cited_tables": [
+   "categories",
+   "order_items"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "D-003",
+  "capability": "D",
+  "question": "What is the average review score given by customers in the state of SP?",
+  "gold": [
+   "4.11"
+  ],
+  "gold_sql": "SELECT AVG(r.review_score) FROM reviews r JOIN orders o ON o.order_id=r.order_id JOIN customers c ON c.customer_id=o.customer_id WHERE c.customer_state='SP'",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-orders",
+   "olist-catalog",
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.53 \u00b7 analytical/exact \u00b7 shares: review, score",
+   "match 0.52 \u00b7 analytical/exact \u00b7 shares: customers, state",
+   "match 0.51 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT AVG(product_category_name) AS avg_product_category_name FROM categories",
+   "SELECT AVG(movieId) AS avg_movieId FROM movies"
+  ],
+  "cited_tables": [
+   "categories",
+   "movies"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "D-004",
+  "capability": "D",
+  "question": "What total item revenue did the single best-selling product category generate?",
+  "gold": [
+   "29787.54"
+  ],
+  "gold_sql": "SELECT SUM(i.price) FROM order_items i JOIN products p ON p.product_id=i.product_id JOIN categories c ON c.product_category_name=p.product_category_name GROUP BY c.product_category_name_english ORDER BY SUM(i.price) DESC LIMIT 1",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-catalog",
+   "movielens",
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.56 \u00b7 analytical/exact \u00b7 shares: category, product",
+   "match 0.54 \u00b7 analytical/exact",
+   "match 0.52 \u00b7 analytical/exact \u00b7 shares: item, product"
+  ],
+  "sql": [
+   "SELECT SUM(product_category_name) AS total_product_category_name FROM categories",
+   "SELECT SUM(movieId) AS total_movieId FROM movies",
+   "SELECT SUM(order_id) AS total_order_id FROM order_items"
+  ],
+  "cited_tables": [
+   "categories",
+   "movies",
+   "order_items"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "D-005",
+  "capability": "D",
+  "question": "How many delivered orders were placed by customers in the city of sao paulo?",
+  "gold": [
+   "376"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM orders o JOIN customers c ON c.customer_id=o.customer_id WHERE c.customer_city='sao paulo' AND o.order_status='delivered'",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-orders",
+   "olist-catalog",
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.60 \u00b7 analytical/exact \u00b7 shares: delivered, orders",
+   "match 0.59 \u00b7 analytical/exact \u00b7 shares: city, customers",
+   "match 0.42 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT COUNT(*) AS count FROM order_items",
+   "SELECT COUNT(*) AS count FROM categories",
+   "SELECT COUNT(*) AS count FROM batting"
+  ],
+  "cited_tables": [
+   "batting",
+   "categories",
+   "order_items"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "E-001",
+  "capability": "E",
+  "question": "How much did customers pay using debit cards?",
+  "gold": [
+   "2389.86"
+  ],
+  "gold_sql": "SELECT SUM(payment_value) FROM payments WHERE payment_type='debit_card'",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-orders",
+   "olist-catalog",
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.48 \u00b7 analytical/exact",
+   "match 0.44 \u00b7 analytical/exact \u00b7 shares: customers",
+   "match 0.43 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5"
+  ],
+  "cited_tables": [
+   "categories"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "E-002",
+  "capability": "E",
+  "question": "How many films in the catalogue are science fiction?",
+  "gold": [
+   "375"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM movies WHERE genres LIKE '%Sci-Fi%'",
+  "status": 200,
+  "answer": "That query ran against your data and matched no records. The source is there and readable - it simply holds nothing that fits.",
+  "routed": [
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.60 \u00b7 analytical/exact \u00b7 shares: catalogue"
+  ],
+  "sql": [],
+  "cited_tables": [],
+  "resolved": []
+ },
+ {
+  "id": "E-003",
+  "capability": "E",
+  "question": "How many players in the register were born in the Dominican Republic?",
+  "gold": [
+   "171"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM players WHERE birthCountry='D.R.'",
+  "status": 200,
+  "answer": "That query ran against your data and matched no records. The source is there and readable - it simply holds nothing that fits.",
+  "routed": [
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.62 \u00b7 analytical/exact \u00b7 shares: players"
+  ],
+  "sql": [],
+  "cited_tables": [],
+  "resolved": []
+ },
+ {
+  "id": "E-004",
+  "capability": "E",
+  "question": "What was the total item revenue from bed, bath and table products?",
+  "gold": [
+   "21905.46"
+  ],
+  "gold_sql": "SELECT SUM(i.price) FROM order_items i JOIN products p ON p.product_id=i.product_id JOIN categories c ON c.product_category_name=p.product_category_name WHERE c.product_category_name_english='bed_bath_table'",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-orders",
+   "olist-catalog"
+  ],
+  "routed_why": [
+   "match 0.47 \u00b7 analytical/exact \u00b7 shares: item",
+   "match 0.56 \u00b7 analytical/exact \u00b7 shares: products, table"
+  ],
+  "sql": [
+   "SELECT DISTINCT product_id FROM products",
+   "SELECT DISTINCT product_id FROM products",
+   "SELECT DISTINCT product_id FROM products",
+   "SELECT DISTINCT product_id FROM products",
+   "SELECT DISTINCT product_id FROM products"
+  ],
+  "cited_tables": [
+   "products"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "E-005",
+  "capability": "E",
+  "question": "How many orders were called off before delivery?",
+  "gold": [
+   "9"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM orders WHERE order_status='canceled'",
+  "status": 200,
+  "answer": "There were no orders called off before delivery.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.55 \u00b7 analytical/exact \u00b7 shares: orders"
+  ],
+  "sql": [
+   "SELECT COUNT(order_id) FROM orders WHERE order_status = 'canceled' AND (order_delivered_customer_date IS NULL OR order_delivered_customer_date > order_estimated_delivery_date)"
+  ],
+  "cited_tables": [
+   "orders"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "F-001",
+  "capability": "F",
+  "question": "How many parcels actually made it into the buyer's hands?",
+  "gold": [
+   "2346"
+  ],
+  "gold_sql": "SELECT COUNT(*) FROM orders WHERE order_status='delivered'",
+  "status": 200,
+  "answer": "2346 parcels made it into the buyer's hands.",
+  "routed": [
+   "olist-orders",
+   "olist-catalog",
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.49 \u00b7 analytical/exact",
+   "match 0.47 \u00b7 analytical/exact",
+   "match 0.39 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT COUNT(DISTINCT orders.order_id) FROM orders WHERE LOWER(orders.order_delivered_customer_date) != ''",
+   "SELECT COUNT(*) AS count FROM categories"
+  ],
+  "cited_tables": [
+   "categories",
+   "orders"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "F-002",
+  "capability": "F",
+  "question": "On average, how highly did the audience score the first Toy Story picture?",
+  "gold": [
+   "3.86"
+  ],
+  "gold_sql": "SELECT AVG(r.rating) FROM ratings r JOIN movies m ON m.movieId=r.movieId WHERE m.title='Toy Story (1995)'",
+  "status": 200,
+  "answer": "That query ran against your data and matched no records. The source is there and readable - it simply holds nothing that fits.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.35 \u00b7 analytical/exact \u00b7 shares: score"
+  ],
+  "sql": [],
+  "cited_tables": [],
+  "resolved": []
+ },
+ {
+  "id": "F-003",
+  "capability": "F",
+  "question": "Typically, how satisfied were shoppers once their purchase arrived?",
+  "gold": [
+   "3.79"
+  ],
+  "gold_sql": "SELECT AVG(review_score) FROM reviews",
+  "status": 200,
+  "answer": "Shoppers were typically satisfied with an average review score of 3.79 out of some unknown maximum.",
+  "routed": [
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.54 \u00b7 analytical/exact \u00b7 shares: purchase, their"
+  ],
+  "sql": [
+   "SELECT AVG(T1.review_score) FROM reviews AS T1 INNER JOIN orders AS T2 ON T1.order_id = T2.order_id WHERE T2.order_delivered_customer_date IS NOT NULL"
+  ],
+  "cited_tables": [
+   "reviews"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "F-004",
+  "capability": "F",
+  "question": "What is the fattest single-year pay packet a ballplayer took home?",
+  "gold": [
+   "32571000"
+  ],
+  "gold_sql": "SELECT MAX(salary) FROM salaries",
+  "status": 200,
+  "answer": "The fattest single-year pay packet a ballplayer took home was $32,571,000.",
+  "routed": [
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.59 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT MAX(T1.salary) FROM salaries AS T1 INNER JOIN players AS T2 ON T1.playerID = T2.playerID"
+  ],
+  "cited_tables": [
+   "salaries"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "F-005",
+  "capability": "F",
+  "question": "How much money did shoppers from Rio de Janeiro's state put through the marketplace, counting item prices only?",
+  "gold": [
+   "39180.04"
+  ],
+  "gold_sql": "SELECT SUM(i.price) FROM order_items i JOIN orders o ON o.order_id=i.order_id JOIN customers c ON c.customer_id=o.customer_id WHERE c.customer_state='RJ'",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-catalog",
+   "olist-orders",
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.61 \u00b7 analytical/exact \u00b7 shares: state",
+   "match 0.60 \u00b7 analytical/exact \u00b7 shares: item, prices",
+   "match 0.46 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT SUM(T1.salary) FROM salaries AS T1 INNER JOIN teams AS T2 ON T1.teamID = T2.teamID WHERE LOWER(T2.name) LIKE '%rio%'",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5",
+   "SELECT * FROM categories LIMIT 5"
+  ],
+  "cited_tables": [
+   "categories",
+   "salaries"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "G-001",
+  "capability": "G",
+  "question": "What is the average employee salary in the HR compensation database?",
+  "gold": [],
+  "gold_sql": "",
+  "status": 200,
+  "answer": "That query ran against your data and matched no records. The source is there and readable - it simply holds nothing that fits.",
+  "routed": [
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.59 \u00b7 analytical/exact \u00b7 shares: hr, salary"
+  ],
+  "sql": [],
+  "cited_tables": [],
+  "resolved": []
+ },
+ {
+  "id": "G-002",
+  "capability": "G",
+  "question": "How many support tickets were escalated to tier three last quarter?",
+  "gold": [],
+  "gold_sql": "",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "baseball",
+   "olist-catalog",
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.42 \u00b7 analytical/exact",
+   "match 0.39 \u00b7 analytical/exact",
+   "match 0.37 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT COUNT(*) AS count FROM batting",
+   "SELECT COUNT(*) AS count FROM categories",
+   "SELECT COUNT(*) AS count FROM order_items"
+  ],
+  "cited_tables": [
+   "batting",
+   "categories",
+   "order_items"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "G-003",
+  "capability": "G",
+  "question": "What is the monthly churn rate in the subscriptions database?",
+  "gold": [],
+  "gold_sql": "",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "baseball",
+   "olist-orders",
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.56 \u00b7 analytical/exact",
+   "match 0.54 \u00b7 analytical/exact",
+   "match 0.52 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT * FROM order_items LIMIT 5",
+   "SELECT * FROM order_items LIMIT 5",
+   "SELECT * FROM order_items LIMIT 5",
+   "SELECT * FROM order_items LIMIT 5",
+   "SELECT * FROM order_items LIMIT 5"
+  ],
+  "cited_tables": [
+   "order_items"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "G-004",
+  "capability": "G",
+  "question": "Which supplier has the longest lead time in the procurement system?",
+  "gold": [],
+  "gold_sql": "",
+  "status": 200,
+  "answer": "I do not have that information.",
+  "routed": [
+   "olist-orders",
+   "olist-catalog",
+   "baseball"
+  ],
+  "routed_why": [
+   "match 0.50 \u00b7 analytical/exact",
+   "match 0.46 \u00b7 analytical/exact",
+   "match 0.42 \u00b7 analytical/exact"
+  ],
+  "sql": [
+   "SELECT * FROM batting LIMIT 5",
+   "SELECT * FROM batting LIMIT 5",
+   "SELECT * FROM batting LIMIT 5",
+   "SELECT * FROM batting LIMIT 5",
+   "SELECT * FROM batting LIMIT 5"
+  ],
+  "cited_tables": [
+   "batting"
+  ],
+  "resolved": []
+ },
+ {
+  "id": "G-005",
+  "capability": "G",
+  "question": "How many clinical trial participants withdrew from the study?",
+  "gold": [],
+  "gold_sql": "",
+  "status": 200,
+  "answer": "I could not complete that query - the source it routed to did not respond successfully, so I have no result to show you rather than a wrong one.",
+  "routed": [
+   "baseball",
+   "olist-catalog",
+   "movielens"
+  ],
+  "routed_why": [
+   "match 0.40 \u00b7 analytical/exact",
+   "match 0.32 \u00b7 analytical/exact",
+   "match 0.31 \u00b7 analytical/exact"
+  ],
+  "sql": [],
+  "cited_tables": [],
+  "resolved": []
+ },
+ {
+  "id": "G-006",
+  "capability": "G",
+  "question": "What is the total headcount in the engineering org chart?",
+  "gold": [],
+  "gold_sql": "",
+  "status": 200,
+  "answer": "I could not complete that query - the source it routed to did not respond successfully, so I have no result to show you rather than a wrong one.",
+  "routed": [
+   "baseball",
+   "olist-catalog",
+   "olist-orders"
+  ],
+  "routed_why": [
+   "match 0.51 \u00b7 analytical/exact",
+   "match 0.48 \u00b7 analytical/exact",
+   "match 0.45 \u00b7 analytical/exact"
+  ],
+  "sql": [],
+  "cited_tables": [],
+  "resolved": []
+ }
+]

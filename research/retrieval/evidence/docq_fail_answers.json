@@ -1,0 +1,130 @@
+[
+ {
+  "id": "B-002",
+  "q": "Which brand was the marketing regression dashboard to be trialled on?",
+  "gold": [
+   "100PLUS"
+  ],
+  "answer": "I do not have that information.",
+  "top_evidence": [
+   "hosen healthier categories (Isotonic, Water, Dairies, Soy/Plant-Based) Implement a consistent marketing model that compu",
+   "hosen healthier categories (Isotonic, Water, Dairies, Soy/Plant-Based) Implement a consistent marketing model that compu",
+   "S7.4 MARKETING ROI 100PLUS Regression Modelling Findings 1 2 S7.4 Recap of the Problem Statement If we spend $X in Marke"
+  ]
+ },
+ {
+  "id": "A-006",
+  "q": "How are the Talend training hands-on sessions facilitated so participants can work at their own pace?",
+  "gold": [
+   "pre-recorded screen recording"
+  ],
+  "answer": "The hands-on sessions are facilitated using pre-recorded screen recordings so that participants can work at their own pace.",
+  "top_evidence": [
+   "Lesson 1-1 Introduction to Talend Course Description During this training, you will be assigned a Talend Data Fabric tra"
+  ]
+ },
+ {
+  "id": "A-007",
+  "q": "What is the end goal for the count of unexplored places in the new business objective app?",
+  "gold": [
+   "ZERO Unexplored"
+  ],
+  "answer": "I do not have that information.",
+  "top_evidence": [
+   "# Objective: 1. Allow Real Time Update of List of places that have not been \"Explored\" by F&N. # Things to do 1. Get dat",
+   "PlacesAPI_Mal1.ipynb PlacesAPI_Mal2.ipynb Objective: Loop over EVERY single Singapore Location Input: List of location o",
+   "maps/documentation/places/web-service/search-nearby#maps_http_places_nearbysearch-py 2. (Steven) https://apc01.safelinks"
+  ]
+ },
+ {
+  "id": "A-008",
+  "q": "Which Australian stock ticker is named in the water investment notes?",
+  "gold": [
+   "D20.AX"
+  ],
+  "answer": "I do not have that information.",
+  "top_evidence": [
+   "Water investment Part 1 General Overview google: \"Is Water good investment\" Legend 1. * : Mal Important 2. # : Mal Comme",
+   "us on technology or utilities 10. Which countries , cos RSS Link 17 says UK water Ris fully privatised. 11. Japan and Au",
+   "it\u2019s not all too little, too late. All the variables point to water prices taking a hike over the next few decades, some"
+  ]
+ },
+ {
+  "id": "B-007",
+  "q": "From which system are vending machines extracted for the product mix dataset?",
+  "gold": [
+   "WIS"
+  ],
+  "answer": "From which system are vending machines extracted for the product mix dataset?\n\n[3] Talend notes: Take samples from nerine for Talend ESND system What distributor sells to outlet stores in ESND. Djaron leading Walburg vending machine business selling 100+ This Week Objective Next Thursday meeting: Product Mix optimization with Djaron This Talend.\n\nThe answer is the ESND system.",
+  "top_evidence": [
+   "Progress Flow for Product Mix Optimization Prepared by: Chan Sin Hui Prepare AI dataset for modeling Extract, Load and T",
+   "datasets are prepared using Talend Find the combination of Customer and Material which are not inside AI dataset for use",
+   "Talend notes 1. Distributor sends email to us 2. Can integrate with outlook 3. Steven need request email to handle ETL p"
+  ]
+ },
+ {
+  "id": "B-010",
+  "q": "Who granted access to the AIInsights Teams channel with the Microsoft training materials?",
+  "gold": [
+   "Yeu Shun Yee"
+  ],
+  "answer": "I do not have that information.",
+  "top_evidence": [
+   "Hi Sheng Kit and Malcolm I have granted you access to AIInsights Teams channel. The training materials on Power BI, DAX,",
+   "vote distribution C (100%) Topic 6Question #17 Your company plans to use an agile approach to software development. You ",
+   "Microsoft Teams. What should you do rst? A. From Microsoft Teams, run @azure pipelines subscribe https://dev.azure.com/C"
+  ]
+ },
+ {
+  "id": "B-011",
+  "q": "What is Loo Say Hoo's job title in the staff directory?",
+  "gold": [
+   "Manager, Key Account"
+  ],
+  "answer": "I do not have that information.",
+  "top_evidence": [
+   ") must declare to the Company on an annual basis. This Form serves as the employee\u2019s written request for permission to s",
+   "________________ Name of Employee Signature / Date ________________________________ Job Title __________________________",
+   "l declaration. All declarations must be acknowledged by the SD -GHC with the end orsement of th eir respective Immediate"
+  ]
+ },
+ {
+  "id": "B-012",
+  "q": "Which office location is Loo Say Hoo based at?",
+  "gold": [
+   "Shah Alam"
+  ],
+  "answer": "I do not have that information.",
+  "top_evidence": [
+   "Location\": null, \"preferredLanguage\": null, \"surname\": null, \"userPrincipalName\": \"choo.mich_gmail.com#EXT#@sghost.onmic",
+   "Location\": null, \"preferredLanguage\": null, \"surname\": null, \"userPrincipalName\": \"choo.mich_gmail.com#EXT#@sghost.onmic",
+   "Location\": \"Central - Shah Alam\", \"mobilePhone\": null, \"jobTitle\": \"Executive, Shipping\", \"department\": \"International M"
+  ]
+ },
+ {
+  "id": "B-014",
+  "q": "Besides finding a panel clinic, what can be requested from the e-Claims portal homepage tools?",
+  "gold": [
+   "Letter of Guarantee"
+  ],
+  "answer": "I don't have that information.",
+  "top_evidence": [
+   "t the submission page (which serves as a claim submission summary) for safekeeping and record purposes. Filing an e-Clai",
+   "Guide for e-Claims Portal Overview: \u2756 Registration for Login \u27a2 Step 1: \u27a2 Step 2: \u27a2 Step 3: Login Registration (For 1st T",
+   "w Password and Confirm your New Password\u2019 3. Click \u2018Proceed\u2019 4. You will be at the Live Great Portal homepage 4 Step 3b:"
+  ]
+ },
+ {
+  "id": "LAW2-003",
+  "q": "How long is the probation period stated in the letter of employment?",
+  "gold": [
+   "six (6) months"
+  ],
+  "answer": "The probation period is six months, which may be extended for another six months at the discretion of the Company.",
+  "top_evidence": [
+   "or not such misdemeanour, misconduct or negligence is or is not directly related to the affairs of the Company; (b) if y",
+   "tion in which you are based. 5 LOCATION The home base of your appointment is Singapore. However, you may be required to ",
+   "with the Compan y may be terminated as follows: (a) During the probationary period, by ei ther party giving to the other"
+  ]
+ }
+]

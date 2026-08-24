@@ -1,0 +1,79 @@
+<!-- src/dbsearch/server/static/visitor.html
+     The page a link visitor sees (#605, ADR 0021). Served by server/link_access.py, whose
+     `VISITOR_PAGE` note carries the full reasoning - including why this is a document of its
+     own rather than the app shell, and why `/c` is deliberately not in SHELL_PATHS.
+
+     TWO RULES THIS FILE EXISTS TO HOLD, and both are about what is NOT here:
+
+     1. NO ACCOUNT CHROME. A visitor has no account and no workspace, so this page carries no
+        navigation, no workspace destinations, no model choice and no session controls. That
+        is a property of the file, not of a conditional somebody has to keep getting right,
+        and tests/selftest_605_visitor_surface.py counts the controls that exist to keep it
+        one. Keep the count at two: something to type into, and a button to send it.
+     2. THE DISCLOSURE IS STATIC MARKUP. It is in the bytes handed to a visitor with no fetch,
+        no boot sequence and no route decision in between. Nothing here can take it away,
+        because nothing here builds it. Do not turn it into something rendered.
+
+     NOTE FOR ANYONE EDITING THE COMMENTS IN THIS FILE: they are served verbatim to strangers
+     outside the organisation, which no other page in the product is. Keep them about the
+     rules and free of anything internal. -->
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- A share link is meant for the people it was sent to, not for a search index. -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>A shared conversation · DBSearch.AI</title>
+  <!-- The same tokens and the same answer/citation styling as the product, so a link does not
+       land on something that looks like a different one. The navigation stylesheet is not
+       loaded here: there is no navigation on this page, and loading styles for one would be
+       an invitation to add it. -->
+  <link rel="stylesheet" href="/static/css/tokens.css?v=__DBS_BUILD__">
+  <link rel="stylesheet" href="/static/css/app.css?v=__DBS_BUILD__">
+</head>
+<body>
+
+  <main class="visitor-page">
+    <header class="visitor-top">
+      <span class="brand">DBSearch<span class="dot">.AI</span></span>
+      <span class="spacer"></span>
+      <span class="trust-chip">Shared link · not signed in</span>
+    </header>
+
+    <h1 class="visitor-title">A conversation somebody shared with you</h1>
+    <!-- The grant, said plainly and without overclaiming in either direction: a visitor really
+         can ask new questions, which many people assume a shared page does not allow, and
+         really cannot reach anything else or take a copy away. -->
+    <p class="visitor-lede">You can read this conversation and ask your own questions about the
+      documents it cites. You are not signed in. Nothing else in their workspace is reachable
+      from here, and the files themselves cannot be downloaded.</p>
+
+    <div class="visitor-thread" id="visitor-thread" aria-live="polite">
+      <div class="empty">Loading this conversation…</div>
+    </div>
+
+    <!-- Directly above the input it warns about, permanently, with no way to dismiss it. The
+         person who receives a link is typing into somebody else's page and has to be told what
+         happens to what they type, at the moment they type it - not in a footer, and not only
+         in a policy document nobody opens. -->
+    <p class="link-disclosure" id="link-disclosure">The person who shared this link can see the questions you ask here.</p>
+
+    <form class="ask-form" id="visitor-form">
+      <input class="ask-input" id="visitor-input" type="text" autocomplete="off"
+             aria-label="Ask a question about these documents"
+             placeholder="Ask a question about these documents…">
+      <button class="ask-btn" type="submit">Ask</button>
+    </form>
+    <p class="visitor-foot">Answers are drawn only from the documents this conversation already
+      cited, and every one of them is cited back to you.</p>
+  </main>
+
+  <!-- #557: the global is DBS_BUILD_ID; the build placeholder may appear in value and ?v=
+       positions only. The server substitutes it with a blanket string replace, and a hex hash
+       starts with a digit 10 times in 16 - in an identifier position that is a SyntaxError on
+       most deploys, which once blanked every surface in the product. -->
+  <script>window.DBS_BUILD_ID = "__DBS_BUILD__";</script>
+  <script type="module" src="/static/js/visitor.js?v=__DBS_BUILD__"></script>
+</body>
+</html>

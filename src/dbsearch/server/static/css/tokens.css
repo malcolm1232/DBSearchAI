@@ -1,0 +1,106 @@
+/* src/dbsearch/server/static/css/tokens.css
+   Paper palette, shared with the marketing site (site/app/globals.css) so
+   dbsearch.ai and the app read as one product. The app keeps its own density
+   and its dark mode; only the palette, type and action language are shared.
+
+   Two token name-sets coexist:
+   (1) the shell names (--bg, --surface, --sidebar-*, --r-*, --ease) and
+   (2) the legacy surface names (--accent, --ink, --muted, --card-bg, --tint-*)
+   remapped onto the paper palette so every existing surface restyles for free.
+
+   IMPORTANT: --accent is a SIGNAL colour (citations, verified, live dots), not
+   a button fill. The primary action is an ink pill, matching the site, and
+   lives in --action. Filling buttons with --accent is what made green
+   meaningless on the old marketing site; don't reintroduce it here. */
+:root {
+  /* paper ramp */
+  --paper:#FAF9F7; --paper-2:#F2F0EC; --white:#FFFFFF;
+  --ink-900:#16161A; --ink-700:#3A3A42; --ink-500:#6B6B73; --ink-300:#9A9AA2;
+  --rule:#E4E2DD; --rule-strong:#D6D3CC;
+
+  /* signal green - 4.77:1 on paper, safe as text */
+  --accent:#15803D; --accent-hover:#166534; --accent-soft:#ECFDF3;
+  --accent-ring:rgba(21,128,61,.18);
+  /* decoration and status dots ONLY - 2.6:1 on paper, never use for text */
+  --accent-bright:#22C55E;
+
+  /* primary action - ink pill, as on the site */
+  --action:#16161A; --action-hover:#000000; --action-fg:#FAF9F7;
+
+  /* semantic */
+  --green:#15803D; --green-soft:#ECFDF3; --green-border:#A7E3BE;
+  --amber:#B45309; --amber-soft:#FEF6E7;
+  --red:#B91C1C; --red-soft:#FDF2F2; --red-border:#F0C0C0;
+  --purple:#6D28D9;
+
+  /* surface roles (shell) */
+  --bg:var(--paper); --surface:var(--white); --surface-2:var(--paper-2);
+  /* the sidebar is the app's inverted band - the same two-tone move the
+     landing page makes with its ink CTA band, so the two read as one system */
+  --sidebar-bg:var(--ink-900); --sidebar-fg:#9A9AA2; --sidebar-muted:#6B6B73;
+  --topbar-bg:var(--paper);
+  --ink:var(--ink-900); --ink-2:var(--ink-700); --muted:var(--ink-500);
+  --border:var(--rule); --border-strong:var(--rule-strong);
+
+  /* legacy surface names -> remapped to the paper palette */
+  --neutral:var(--paper-2); --card-border:var(--border); --card-bg:var(--surface);
+  --page-bg:var(--bg); --header-bg:var(--topbar-bg);
+  --tint-sage:var(--accent-soft); --tint-cream:var(--paper-2); --tint-blue:var(--paper-2);
+  --tint-pink:var(--paper-2); --tint-lavender:var(--paper-2); --tint-tan:var(--paper-2);
+
+  /* shadows + radii + type */
+  --shadow-sm:0 1px 2px rgba(22,22,26,.04);
+  --shadow:0 1px 2px rgba(22,22,26,.04), 0 1px 3px rgba(22,22,26,.05);
+  --shadow-hover:0 12px 32px -12px rgba(22,22,26,.14), 0 4px 10px -4px rgba(22,22,26,.08);
+  --shadow-lg:0 12px 32px -12px rgba(22,22,26,.14), 0 4px 10px -4px rgba(22,22,26,.08);
+
+  --r-lg:14px; --r-md:10px; --r-sm:7px; --r-pill:999px;
+  --radius-panel:var(--r-md); --radius-card:var(--r-sm); --radius-pill:var(--r-pill); --radius-ctl:6px;
+
+  --font:ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Vendored locally rather than pulled from fonts.googleapis.com: this product
+     promises that nothing leaves the customer's cloud, and a Google font request
+     would ship every user's IP and UA to a third party on page load. */
+  --serif:"Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
+  --mono:ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --ease-pop:cubic-bezier(0.34, 1.56, 0.64, 1); --ease-smooth:cubic-bezier(.16,1,.3,1);
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/instrument-serif-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC,
+                 U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Warm dark rather than the old blue-black, so the two themes read as the same
+   product lit differently. */
+[data-theme="dark"] {
+  --bg:#141416; --surface:#1C1C20; --surface-2:#232328;
+  --sidebar-bg:#0E0E10; --sidebar-fg:#9A9AA2; --sidebar-muted:#6B6B73;
+  --topbar-bg:#141416;
+  --ink:#F5F4F1; --ink-2:#D7D5D0; --muted:#9A9AA2;
+  --border:#2E2E33; --border-strong:#3C3C43;
+
+  --accent:#4ADE80; --accent-hover:#86EFAC; --accent-soft:#12281B;
+  --accent-ring:rgba(74,222,128,.22); --accent-bright:#4ADE80;
+  /* on dark the ink pill inverts: a paper pill with ink text */
+  --action:#F5F4F1; --action-hover:#FFFFFF; --action-fg:#16161A;
+
+  --green:#4ADE80; --green-soft:#12281B; --green-border:#1E5235;
+  --amber:#FBBF24; --amber-soft:#2A2110;
+  --red:#F87171; --red-soft:#2C1518; --red-border:#5A2730;
+
+  --neutral:#232328; --card-border:var(--border); --card-bg:var(--surface);
+  --page-bg:var(--bg); --header-bg:var(--topbar-bg);
+  --tint-sage:var(--accent-soft); --tint-cream:var(--surface-2); --tint-blue:var(--surface-2);
+  --tint-pink:var(--surface-2); --tint-lavender:var(--surface-2); --tint-tan:var(--surface-2);
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow:0 2px 6px rgba(0,0,0,.45);
+  --shadow-hover:0 16px 40px -8px rgba(0,0,0,.6); --shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);
+}

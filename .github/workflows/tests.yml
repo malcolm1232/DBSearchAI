@@ -1,0 +1,96 @@
+name: tests
+
+# #686. Runs the WHOLE tests/ directory - both groups - because the number this repo used to
+# quote came from globbing selftest_*.py by hand, which silently excluded the six browser
+# tests, three of which had been red for weeks. scripts/run_tests.py is the only runner that
+# reports its own scope, so it is the one CI uses.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A newer push supersedes an in-flight run on the same ref; don't burn minutes on stale ones.
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45          # a full local run is ~25 min, dominated by the sharing tests
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          # Matches the production image (python:3.11-slim), so CI exercises what ships.
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          # `dev` carries what the suite imports beyond the app itself - pytest, anthropic,
+          # google-cloud-bigquery, httpx. They were undeclared until #686, which is why the
+          # suite passed on a developer machine and failed on a clean clone.
+          #
+          # Installs exactly what the metadata declares. No CI-only pins.
+          #
+          # Installs exactly what the metadata declares - no CI-only pins. This was briefly
+          # impossible: the first version pinned fastapi<0.129 to dodge three route-walking
+          # tests, and that cannot resolve (fastapi 0.128.8 needs starlette<1.0 while this
+          # project declares starlette>=1.3.1). #696 fixed the tests instead, which is why no
+          # pin is needed here now. #697 still tracks the range being disjoint from the
+          # environment this suite was historically verified on.
+          pip install -e ".[server,e2e,secrets,cli,dev]"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+
+      - name: Install jsdom
+        # #792: fifteen selftest files drive a surface through node, ten of them mounting it in
+        # jsdom. They resolved jsdom out of `site/node_modules`, which is gitignored and
+        # untracked - so it has never existed on this runner, and every one of those checks
+        # returned a green skip instead of asserting. Measured on a clean tree: 66 DOM checks
+        # skipped, and the file-level summary was byte-identical to a full run.
+        #
+        # ubuntu-latest already ships a `node` binary, which is why the `which node` half of the
+        # old gate passed and hid the missing half.
+        #
+        # tests/, NOT site/. The first cut of this step installed the marketing site's tree,
+        # which is where the suite used to reach for jsdom - and it FAILED HERE while passing
+        # locally, because site/package-lock.json is out of sync with its package.json
+        # (picomatch 2.3.2 vs 4.0.5) and npm 11 tolerates what npm 10 refuses. The suite must
+        # not be breakable by the marketing site's dependency tree, so jsdom is now declared
+        # beside the tests that use it and pinned exactly.
+        run: npm ci --prefix tests
+
+      - name: Cache Playwright browsers
+        # #819: the browser download comes from Playwright's CDN and is identical for a given
+        # playwright version, so cache it on the pin that decides it.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements*.txt') }}
+
+      - name: Install Chromium
+        # #819: NO --with-deps. That flag apt-installs system libraries from the runner's
+        # Ubuntu mirror on every run, and when the mirror stalls the step hangs INDEFINITELY
+        # (observed 260818: two consecutive runs stuck 25+ minutes; the suite never started).
+        # ubuntu-latest already ships Chromium's system libraries - only the browser binary
+        # itself is needed, and it comes from Playwright's own CDN (cached above). The
+        # timeout turns any future stall into a fast, visible failure instead of a hang;
+        # if a system library ever goes missing the three e2e files will say so loudly.
+        timeout-minutes: 5
+        run: python -m playwright install chromium
+
+      - name: Run the whole suite
+        # No -k, no --selftest, no --e2e: narrowing makes the runner print [PARTIAL], and a
+        # partial number in CI is the exact failure mode this workflow exists to prevent.
+        run: python scripts/run_tests.py

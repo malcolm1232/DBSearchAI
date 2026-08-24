@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+/*
+ * Vault design tokens (Global Constraints — locked, verbatim).
+ * `@theme inline` (not a plain `@theme` block) is required here: our
+ * next/font variables in lib/fonts.ts are ALSO named --font-sans/--font-mono,
+ * and a plain `@theme` block would emit a `:root { --font-sans: var(--font-sans) }`
+ * declaration that self-references and becomes invalid at computed-value time.
+ * `@theme inline` inlines the var() reference directly into each generated
+ * utility instead of redeclaring the custom property, avoiding the cycle.
+ */
+@theme inline {
+  /* Paper palette. See docs/superpowers/specs/2026-07-28-landing-redesign-design.md */
+  --color-bg: #faf9f7;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f2f0ec;
+  --color-fg: #16161a;
+  --color-fg-muted: #6b6b73;
+  --color-border: #e4e2dd;
+  --color-accent: #15803d;
+  --color-accent-hover: #166534;
+  /* Decoration and status dots only. 2.6:1 on paper, never use it for text. */
+  --color-accent-bright: #22c55e;
+  /* Muted text on the inverted band, where fg-muted would be dark on dark. */
+  --color-on-ink-muted: #9a9aa2;
+  --color-destructive: #b91c1c;
+
+  --font-sans: var(--font-sans), ui-sans-serif, sans-serif;
+  --font-serif: var(--font-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+
+  --tracking-display: -0.02em;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #faf9f7;
+  color: #16161a;
+}
+
+/*
+ * Was a visible slate grid on the dark theme. On paper a grid reads as noise,
+ * so this is now an almost imperceptible warm wash. The class is kept because
+ * eight inner pages still reference it; they inherit the calmer treatment for
+ * free. `overflow-x: hidden` is retained: decorative absolutely-positioned
+ * children can be wider than the viewport on narrow screens, and clipping here
+ * stops them extending the page's horizontal scroll.
+ */
+.vault-grid {
+  background-image: radial-gradient(
+    ellipse 80% 50% at 50% 0%,
+    rgba(22, 22, 26, 0.025),
+    transparent 70%
+  );
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* FAQ accordion: kill the default disclosure triangle in Safari (older
+   WebKit renders it via a proprietary pseudo-element instead of ::marker,
+   so `list-none` alone doesn't remove it there). */
+summary::-webkit-details-marker {
+  display: none;
+}
+
+/*
+ * Display type. Instrument Serif ships a single weight, so hierarchy comes
+ * from size alone. Applied to h1/h2 only - h3 and below stay Inter, which
+ * keeps feature titles reading as product rather than magazine.
+ */
+.font-display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * Sized to the hero's 5-of-12 column, not to the viewport. At the original
+ * 4.25rem cap the second sentence broke four ways and left "see." orphaned on
+ * its own line.
+ */
+.text-display-1 {
+  font-size: clamp(2.5rem, 3.6vw, 3.5rem);
+  line-height: 1.08;
+}
+
+.text-display-2 {
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  line-height: 1.1;
+}
+
+.text-micro {
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Anchor navigation (the /architecture law rail) glides instead of jumping,
+   unless the visitor asks for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

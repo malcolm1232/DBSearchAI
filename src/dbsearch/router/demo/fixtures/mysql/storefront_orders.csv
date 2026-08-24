@@ -1,0 +1,7 @@
+id,region,category,amount
+1,amer,Hardware,500
+2,amer,Software,300
+3,emea,Hardware,700
+4,emea,Services,200
+5,apac,Software,450
+6,apac,Hardware,350

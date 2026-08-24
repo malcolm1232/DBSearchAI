@@ -1,0 +1,7 @@
+id,region,product,amount,closed_on
+1,apac,Platform License,125000,2026-01-14
+2,apac,Support,80000,2026-02-03
+3,emea,Platform License,95000,2026-01-22
+4,emea,Services,30000,2026-03-11
+5,amer,Platform License,150000,2026-02-28
+6,amer,Support,45000,2026-03-19

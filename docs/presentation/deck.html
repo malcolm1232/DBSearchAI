@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How DBSearch.AI Was Built</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='%2340d9a8'/></svg>">
+<style>
+/* ============================================================================
+   TOKENS
+   Identity carried from docs/architecture_deck.html (navy / blue / green / amber),
+   restated in OKLCH. The three accents carry MEANING, never decoration:
+     blue   structure, architecture, protocol
+     green  the guarantee, the thing that holds
+     amber  the failure story, the bug, the attack
+     rose   a denial, a refusal, a fail-closed
+   ========================================================================== */
+:root{
+  --bg:        oklch(0.155 0.026 264);
+  --bg-deep:   oklch(0.115 0.024 264);
+  --surface:   oklch(0.205 0.028 264);
+  --surface-2: oklch(0.245 0.030 264);
+  --line:      oklch(0.325 0.034 264);
+  --line-soft: oklch(0.265 0.030 264);
+  --ink:       oklch(0.965 0.008 264);
+  --muted:     oklch(0.760 0.024 264);   /* >7:1 on --bg */
+  --faint:     oklch(0.600 0.026 264);
+
+  --blue:      oklch(0.735 0.145 262);
+  --green:     oklch(0.795 0.150 168);
+  --amber:     oklch(0.835 0.135 82);
+  --rose:      oklch(0.720 0.165 18);
+
+  --blue-dim:  oklch(0.735 0.145 262 / 0.14);
+  --green-dim: oklch(0.795 0.150 168 / 0.13);
+  --amber-dim: oklch(0.835 0.135 82  / 0.13);
+  --rose-dim:  oklch(0.720 0.165 18  / 0.13);
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Mono", monospace;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --z-slide: 1;
+  --z-chrome: 20;
+  --z-notes: 40;
+  --z-help: 60;
+
+  --pad-x: clamp(48px, 5.2vw, 92px);
+  --pad-t: clamp(40px, 4.4vw, 68px);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:var(--sans); -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* ============================================================================
+   DECK CHROME
+   ========================================================================== */
+.deck{position:relative;height:100vh;width:100vw;overflow:hidden}
+
+.slide{
+  position:absolute; inset:0;
+  display:none; flex-direction:column;
+  padding:var(--pad-t) var(--pad-x) 92px;
+}
+.slide.active{display:flex}
+
+/* Content rises in on activation. Default state is fully visible: the animation
+   only re-plays the arrival, it never gates visibility (a headless render or a
+   backgrounded tab still shows a complete slide). */
+.slide.active > *{animation:rise .5s var(--ease) both}
+.slide.active > *:nth-child(2){animation-delay:.05s}
+.slide.active > *:nth-child(3){animation-delay:.10s}
+.slide.active > *:nth-child(4){animation-delay:.15s}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+.progress{
+  position:fixed; top:0; left:0; height:2px; z-index:var(--z-chrome);
+  background:var(--blue); width:0;
+  transition:width .45s var(--ease);
+}
+
+.footer{
+  position:fixed; left:var(--pad-x); right:var(--pad-x); bottom:30px;
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:13px; color:var(--faint); z-index:var(--z-chrome);
+  border-top:1px solid var(--line-soft); padding-top:14px;
+  pointer-events:none;
+}
+.footer .act{letter-spacing:.06em}
+.footer .count{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.footer .count b{color:var(--muted);font-weight:600}
+
+/* ============================================================================
+   TYPE SCALE  (ratio ~1.30)
+   ========================================================================== */
+h1{
+  font-size:clamp(46px, 5.6vw, 88px); line-height:1.02;
+  letter-spacing:-0.032em; font-weight:760; margin:0;
+  text-wrap:balance;
+}
+h2{
+  font-size:clamp(30px, 3.3vw, 50px); line-height:1.10;
+  letter-spacing:-0.026em; font-weight:700; margin:0 0 28px;
+  max-width:22ch; text-wrap:balance;
+}
+h2 em{font-style:normal;color:var(--blue)}
+h2.tight{margin-bottom:20px}
+h3{font-size:19px;line-height:1.3;letter-spacing:-0.012em;font-weight:660;margin:0 0 8px}
+
+.lede{
+  font-size:clamp(19px, 1.6vw, 25px); line-height:1.5; color:var(--muted);
+  max-width:64ch; margin:0; text-wrap:pretty;
+}
+.lede strong{color:var(--ink);font-weight:600}
+p{margin:0 0 14px;line-height:1.55}
+.small{font-size:17.5px;color:var(--muted);line-height:1.58;max-width:62ch}
+
+.mono{font-family:var(--mono);font-size:.88em;letter-spacing:-0.01em}
+.ref{
+  font-family:var(--mono); font-size:12.5px; color:var(--faint);
+  letter-spacing:-0.01em;
+}
+
+/* Pull-quote: the line the speaker wants remembered. */
+.claim{
+  font-size:clamp(24px, 2.5vw, 38px); line-height:1.25; letter-spacing:-0.022em;
+  font-weight:660; max-width:26ch; text-wrap:balance; margin:0;
+}
+.claim .hi{color:var(--green)}
+.claim .lo{color:var(--rose)}
+
+/* ============================================================================
+   THE GATE RULE  — the deck's signature device.
+   A boundary with a labelled break in it. Used wherever something is being
+   allowed through or held back.
+   ========================================================================== */
+.gate{
+  display:flex; align-items:center; gap:16px; margin:26px 0;
+  color:var(--muted); font-size:13px; letter-spacing:.04em;
+}
+.gate::before,.gate::after{content:"";height:1px;background:var(--line);flex:1}
+.gate .lbl{
+  font-family:var(--mono); font-size:12px; white-space:nowrap;
+  padding:5px 12px; border:1px solid var(--line); border-radius:999px;
+  background:var(--bg-deep);
+}
+.gate.pass .lbl{color:var(--green);border-color:oklch(0.795 0.150 168 / .45)}
+.gate.deny .lbl{color:var(--rose);border-color:oklch(0.720 0.165 18 / .45)}
+
+/* ============================================================================
+   LAYOUT PRIMITIVES
+   ========================================================================== */
+/* align-content centres the grid's ROWS in the leftover vertical space, so a
+   short slide sits optically centred instead of hugging the title. align-items
+   keeps each column top-aligned within its row. */
+.split{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(32px,4vw,64px);
+       align-items:start;align-content:center;flex:1}
+.split.center{align-items:center}
+/* Side-by-side comparison: equal height, or the two panels read as misaligned. */
+.split.equal{align-items:stretch}
+.split.equal > .block{display:flex;flex-direction:column}
+.split.wide-left{grid-template-columns:1.35fr .65fr}
+.stack{display:flex;flex-direction:column;gap:18px;min-width:0}
+.grow{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;max-width:1180px}
+h3{font-size:21px}
+
+/* A labelled block. Not a card grid: used singly or in twos, with real contrast
+   between them, never as an endlessly repeated icon+title+text tile. */
+.block{
+  border:1px solid var(--line-soft); border-radius:14px;
+  padding:22px 24px; background:var(--surface);
+}
+.block.on-blue {border-color:oklch(0.735 0.145 262 / .40); background:var(--blue-dim)}
+.block.on-green{border-color:oklch(0.795 0.150 168 / .40); background:var(--green-dim)}
+.block.on-amber{border-color:oklch(0.835 0.135 82  / .42); background:var(--amber-dim)}
+.block.on-rose {border-color:oklch(0.720 0.165 18  / .42); background:var(--rose-dim)}
+.block h3 .tick{color:var(--green);margin-right:8px}
+.block h3 .cross{color:var(--rose);margin-right:8px}
+.block p:last-child{margin-bottom:0}
+
+.rows{display:flex;flex-direction:column;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:14px;overflow:hidden}
+/* Fixed key column, not `auto`: each .row is its own grid, so `auto` sizes the
+   key per-row and the values start at a different x on every line. */
+.rows .row{display:grid;grid-template-columns:124px minmax(0,1fr);gap:22px;align-items:baseline;background:var(--surface);padding:18px 24px}
+.rows .row .k{font-family:var(--mono);font-size:14px;color:var(--blue);white-space:nowrap}
+.rows .row .v{font-size:18px;line-height:1.5;color:var(--muted)}
+.rows .row .v b{color:var(--ink);font-weight:600}
+
+/* Ordered list where the order genuinely carries meaning (a protocol sequence,
+   a callback's four steps). Not decorative numbering. */
+ol.steps{list-style:none;counter-reset:s;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
+/* Named areas, not auto-placement: the marker, the title and the description are
+   three children of a two-column grid, so auto-placement drops the description
+   into the 30px marker column and every word lands on its own line. */
+ol.steps li{
+  counter-increment:s; display:grid;
+  grid-template-columns:36px minmax(0,1fr);
+  grid-template-areas:"marker title" ".  desc";
+  gap:6px 20px; align-items:start;
+}
+ol.steps li::before{
+  grid-area:marker;
+  content:counter(s); font-family:var(--mono); font-size:14px; font-weight:600;
+  color:var(--blue); background:var(--blue-dim);
+  border:1px solid oklch(0.735 0.145 262 / .35);
+  width:36px;height:36px;border-radius:10px;display:grid;place-items:center;
+}
+ol.steps li > b{grid-area:title;font-size:22px;font-weight:650;color:var(--ink);line-height:1.6;align-self:center;letter-spacing:-0.012em}
+ol.steps li > span{grid-area:desc;font-size:17.5px;color:var(--muted);line-height:1.55;max-width:70ch}
+
+ul.plain{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+ul.plain li{display:grid;grid-template-columns:16px minmax(0,1fr);gap:14px;font-size:18.5px;line-height:1.5;color:var(--muted)}
+ul.plain li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--blue);margin-top:11px}
+ul.plain li b{color:var(--ink);font-weight:600}
+ul.plain.green li::before{background:var(--green)}
+ul.plain.amber li::before{background:var(--amber)}
+
+code.k{
+  font-family:var(--mono);font-size:.9em;background:var(--bg-deep);
+  border:1px solid var(--line-soft);border-radius:6px;padding:2px 7px;color:var(--ink);
+}
+
+pre{
+  font-family:var(--mono); font-size:16.5px; line-height:1.7;
+  background:var(--bg-deep); border:1px solid var(--line-soft);
+  border-radius:14px; padding:22px 24px; margin:0; overflow:auto; color:var(--muted);
+}
+pre .c{color:var(--faint)}
+pre .b{color:var(--blue)}
+pre .g{color:var(--green)}
+pre .a{color:var(--amber)}
+pre .r{color:var(--rose)}
+pre .w{color:var(--ink)}
+
+/* ============================================================================
+   SEQUENCE DIAGRAM (slide 7)
+   ========================================================================== */
+.seq{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;position:relative;padding-top:6px}
+/* No lifeline pseudo-elements: the lane divs only occupy the header row, so a
+   vertical rule renders as a stray stub under each label. The message rules
+   already carry the structure. */
+.seq .lane{padding:0 10px}
+.seq .lane h4{
+  margin:0 0 20px;text-align:center;font-size:14px;font-weight:640;color:var(--ink);
+  padding:8px 0;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+}
+.seq .steps-abs{grid-column:1/-1;display:flex;flex-direction:column;gap:13px;margin-top:-4px}
+.seq .msg{
+  display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;
+  font-family:var(--mono);font-size:12.5px;
+}
+.seq .msg .arrow{
+  position:relative;text-align:center;color:var(--muted);
+  border-top:1px solid var(--line);margin-top:9px;padding-top:0;
+}
+.seq .msg .arrow span{
+  position:relative;top:-11px;background:var(--bg);padding:0 10px;white-space:nowrap;
+}
+.seq .msg .arrow.b{border-color:oklch(0.735 0.145 262 / .55)}
+.seq .msg .arrow.b span{color:var(--blue)}
+.seq .msg .arrow.g{border-color:oklch(0.795 0.150 168 / .55)}
+.seq .msg .arrow.g span{color:var(--green)}
+.seq .msg .arrow.c{border-style:dashed}
+.seq .msg .arrow::after{
+  content:"";position:absolute;top:-4px;width:7px;height:7px;
+  border-right:1px solid currentColor;border-bottom:1px solid currentColor;
+}
+.seq .msg .arrow.to-r::after{right:-1px;transform:rotate(-45deg)}
+.seq .msg .arrow.to-l::after{left:-1px;transform:rotate(135deg)}
+.seq .span-1-2{grid-column:1/3}
+.seq .span-2-3{grid-column:2/4}
+.seq .span-1-3{grid-column:1/4}
+.seq .col-1{grid-column:1/2}
+.seq .col-2{grid-column:2/3}
+.seq .col-3{grid-column:3/4}
+
+/* ============================================================================
+   TITLE SLIDE
+   ========================================================================== */
+.title-slide{justify-content:center;gap:0}
+.brandmark{
+  display:inline-flex;align-items:center;gap:11px;font-size:14px;font-weight:640;
+  letter-spacing:.02em;color:var(--muted);margin-bottom:34px;
+}
+.brandmark .dot{width:9px;height:9px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 5px var(--green-dim)}
+.title-slide .lede{margin-top:26px;max-width:56ch}
+.title-meta{
+  margin-top:44px;display:flex;gap:12px;flex-wrap:wrap;
+}
+.title-meta span{
+  font-family:var(--mono);font-size:12.5px;color:var(--muted);
+  border:1px solid var(--line);border-radius:999px;padding:7px 15px;background:var(--surface);
+}
+
+/* ============================================================================
+   SPEAKER NOTES  (press S)
+   ========================================================================== */
+.notes{display:none}
+body.notes-on .slide.active .notes{
+  display:block; position:fixed; left:0; right:0; bottom:0;
+  max-height:42vh; overflow:auto; z-index:var(--z-notes);
+  background:var(--bg-deep); border-top:1px solid var(--line);
+  padding:22px var(--pad-x) 26px;
+  animation:slideUp .3s var(--ease) both;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:none}}
+.notes p{font-size:15.5px;line-height:1.62;color:var(--muted);max-width:88ch;margin:0 0 12px}
+.notes p:last-child{margin-bottom:0}
+.notes p strong{color:var(--ink);font-weight:620}
+.notes .hd{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;
+  color:var(--faint);margin-bottom:12px;
+}
+body.notes-on .footer{bottom:calc(42vh + 18px)}
+
+/* ============================================================================
+   HELP OVERLAY  (press ?)
+   ========================================================================== */
+.help{
+  position:fixed;inset:0;z-index:var(--z-help);display:none;
+  place-items:center;background:oklch(0.115 0.024 264 / .88);
+}
+body.help-on .help{display:grid}
+.help .panel{
+  background:var(--surface);border:1px solid var(--line);border-radius:18px;
+  padding:34px 40px;min-width:400px;
+}
+.help h3{margin-bottom:20px;font-size:20px}
+.help dl{display:grid;grid-template-columns:auto 1fr;gap:12px 24px;margin:0}
+.help dt{font-family:var(--mono);font-size:13px;color:var(--blue)}
+.help dd{margin:0;font-size:15px;color:var(--muted)}
+
+/* Bottom-CENTRE: the footer already owns both bottom corners (act label left,
+   slide counter right), and a right-aligned hint collided with the counter. */
+.hint{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:30px;z-index:var(--z-chrome);
+  font-size:12.5px;color:var(--faint);font-family:var(--mono);white-space:nowrap;
+  transition:opacity .6s var(--ease);
+}
+body.started .hint{opacity:0;pointer-events:none}
+
+/* Export mode (?export=1): strip presenter affordances so each frame is a clean
+   still for slide-image export. */
+body.export .hint,body.export .progress{display:none}
+
+/* ============================================================================
+   RESPONSIVE  — the deck is presented at 16:9 but must survive a laptop and a
+   sane portrait window without overflowing.
+   ========================================================================== */
+@media (max-width:1080px){
+  .split,.split.wide-left{grid-template-columns:1fr;gap:26px}
+  .seq{font-size:11px}
+  h2{max-width:100%}
+}
+@media (max-height:680px){
+  .slide{padding-top:32px;padding-bottom:76px}
+  h2{margin-bottom:18px}
+  pre{font-size:13px;padding:16px 18px}
+}
+
+/* ============================================================================
+   MOTION PREFERENCE
+   ========================================================================== */
+@media (prefers-reduced-motion:reduce){
+  .slide.active > *{animation:fadeOnly .01s both}
+  @keyframes fadeOnly{from{opacity:1}to{opacity:1}}
+  .progress{transition:none}
+  body.notes-on .slide.active .notes{animation:none}
+}
+
+/* ============================================================================
+   PRINT  — every slide on its own landscape page. Clean PDF export.
+   ========================================================================== */
+@media print{
+  @page{size:1600px 900px;margin:0}
+  html,body{overflow:visible;height:auto;background:#fff}
+  body{background:var(--bg)}
+  .deck{height:auto}
+  .slide{
+    position:relative;display:flex!important;height:900px;width:1600px;
+    page-break-after:always;break-after:page;
+  }
+  .slide.active > *{animation:none}
+  .progress,.hint,.help{display:none!important}
+  .notes{display:none!important}
+  .footer{position:absolute;bottom:30px}
+}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<div class="deck" id="deck">
+
+<!-- ═══ 1 · TITLE ═══════════════════════════════════════════════════════════ -->
+<section class="slide active title-slide" data-act="Opening">
+  <div>
+    <div class="brandmark"><span class="dot"></span> DBSearch.AI</div>
+    <h1>The hard part<br>was never the AI.</h1>
+    <p class="lede">Ask one question, get one cited answer, across every system a firm already owns. And never see a row you were not already allowed to see.</p>
+    <div class="title-meta">
+      <span>federated query routing</span>
+      <span>query-as-the-user</span>
+      <span>default-deny</span>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 1 · 0:00</div>
+    <p>I want to show you a product where the hard part was not the AI.</p>
+    <p>Everybody in this room can wire an LLM to a database in an afternoon. What almost nobody does correctly is the part underneath: making sure the answer that comes back is one the person asking was already entitled to receive. That is the entire product. The AI is the easy ten percent.</p>
+    <p>So this talk is really about one question <strong>who is allowed to see what, and who gets to decide</strong> and about the twelve or so places we got that wrong before we got it right.</p>
+  </div>
+</section>
+
+<!-- ═══ 2 · THE PROBLEM ═════════════════════════════════════════════════════ -->
+<section class="slide" data-act="The problem">
+  <h2>A firm's memory is scattered across eight systems bought in four decades</h2>
+  <div class="split">
+    <div class="stack">
+      <div class="rows">
+        <div class="row"><span class="k">SharePoint</span><span class="v">proposals, decks, the wiki nobody maintains</span></div>
+        <div class="row"><span class="k">Azure SQL</span><span class="v">closed deals, revenue by region</span></div>
+        <div class="row"><span class="k">Postgres</span><span class="v">support tickets</span></div>
+        <div class="row"><span class="k">BigQuery</span><span class="v">whatever marketing bought in 2021</span></div>
+      </div>
+      <p class="small">Today the answer to any question spanning two of these is: ask three people, wait two days, get a guess.</p>
+    </div>
+    <div class="stack">
+      <div class="block on-blue">
+        <h3>What a partner actually asks</h3>
+        <p class="small" style="color:var(--ink)">"Have we done this before?"</p>
+        <p class="small" style="color:var(--ink);margin:0">"Which products generate the most support tickets, and how much revenue do those same products bring in?"</p>
+      </div>
+      <div class="block on-rose">
+        <h3><span class="cross">✕</span>The obvious move</h3>
+        <p class="small" style="margin:0">Copy everything into one index and put a chatbot on it. That is a data breach with a nice UI: the moment data leaves a system, it leaves that system's permissions behind.</p>
+      </div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 2 · 2:00</div>
+    <p>Take a professional services firm. Their institutional memory is scattered across eight systems that were bought by different people in different decades.</p>
+    <p>The question a partner actually wants to ask is "have we done this before". Or a cross-system one: "which of our products generate the most support tickets, and how much revenue do those same products bring in". Notice that second one. The tickets live in a support database, the revenue lives in a sales database, and nobody has ever joined them.</p>
+    <p>Today the answer to both is: ask three people, wait two days, get a guess.</p>
+    <p><strong>The obvious move is to copy everything into one big index and put a chatbot on it. That move is a data breach with a nice UI.</strong> Because the moment you copy data out of a system, you leave that system's permissions behind.</p>
+  </div>
+</section>
+
+<!-- ═══ 3 · THE LAWS ════════════════════════════════════════════════════════ -->
+<section class="slide" data-act="The problem">
+  <h2>We wrote the laws before we wrote the features</h2>
+  <div class="split center">
+    <div class="stack">
+      <div class="block on-green">
+        <h3>LAW 1 · Data residency</h3>
+        <p class="small" style="margin:0">Customer content never leaves the customer's tenant. Not to us, not to our logs, not to our error reports, not to our analytics.</p>
+      </div>
+      <div class="block on-green">
+        <h3>LAW 2 · Permission-faithful</h3>
+        <p class="small" style="margin:0">No query returns a result the user was not already authorized to see. The filter is mandatory and <b>default-deny</b>: if we cannot prove you may see it, you do not see it.</p>
+      </div>
+    </div>
+    <div class="stack">
+      <p class="lede">Ten laws in <code class="k">SKILL.md</code>, and a gate that runs on <strong>every single change</strong>.</p>
+      <div class="gate deny"><span class="lbl">violates a law → redesign</span></div>
+      <p class="small">Not "merged for now with a ticket". Redesigned. That sounds like process theatre until you count how many times it caught something at design time, when it cost an afternoon.</p>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 3 · 4:00</div>
+    <p>So before we wrote a line of feature code, we wrote the laws. They live in a file called SKILL.md at the root of the repo, and there are ten of them. Two matter more than the rest.</p>
+    <p><strong>Law one:</strong> customer document content never leaves the customer's cloud. Not to us, not to our logs, not to our error reports, not to our analytics. We run inside their tenant. We architecturally cannot see their data, which means we cannot leak it, and it means their security review is short.</p>
+    <p><strong>Law two:</strong> no query ever returns a result the user was not already authorized to see in the source system. The permission filter is mandatory and default-deny, meaning if we cannot prove you are allowed to see something, you do not see it. Silence is the safe answer.</p>
+    <p>And there is a gate. Every single change runs a checklist against these laws before it merges. If a feature violates a law it gets redesigned. It never gets merged "for now". That sounds like process theatre until you see how many times it caught something.</p>
+  </div>
+</section>
+
+<!-- ═══ 4 · TWO PLANES ══════════════════════════════════════════════════════ -->
+<section class="slide" data-act="Architecture">
+  <h2 class="tight">Two planes, one <em>very narrow</em> wire</h2>
+  <div class="grow">
+    <div class="block on-blue" style="padding:26px 28px">
+      <h3 style="color:var(--blue)">Customer's cloud · data plane</h3>
+      <p class="small" style="margin:0">Connectors → parse → embed → index. Query → route → security-trim → LLM → answer.<br>Documents, embeddings, indexes and <b>every LLM call</b> happen in here.</p>
+    </div>
+    <div class="gate pass"><span class="lbl">counts · costs · health · version · timestamp</span></div>
+    <div class="block" style="padding:26px 28px">
+      <h3>Our cloud · control plane</h3>
+      <p class="small" style="margin:0">Releases, billing counters, health, onboarding. Receives customer content: <b>never</b>.</p>
+    </div>
+    <p class="small" style="margin-top:28px">Anything outside the versioned boundary contract is rejected at the wire and logged as a violation. The air-gapped edition is that wire turned <b style="color:var(--green)">off</b>: a config flag, not a fork.</p>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 4 · 6:00</div>
+    <p>Two planes, one very narrow wire.</p>
+    <p>The data plane runs in the customer's own Azure subscription. Documents, embeddings, indexes, and every LLM call happen in there. The control plane is ours. It does releases, billing counters, health, onboarding. And it never receives customer content. Ever.</p>
+    <p>The only things allowed to cross upward are defined in a versioned schema we call the boundary contract: counts, costs, health percentages, a version number, a timestamp. Anything not in that contract is rejected at the wire and logged as a violation.</p>
+    <p><strong>And here is the part that closes enterprise deals:</strong> for a customer who forbids any uplink at all, defence, some banks, the air-gapped edition is that wire turned off. A config flag. Not a fork, not a special build, not a different product we have to maintain. Same artifact.</p>
+  </div>
+</section>
+
+<!-- ═══ 5 · A USER ARRIVES ══════════════════════════════════════════════════ -->
+<section class="slide" data-act="Identity">
+  <h2>Before anything else: who is this?</h2>
+  <div class="split wide-left">
+    <div class="stack">
+      <div class="rows">
+        <div class="row"><span class="k">dev</span><span class="v">no login configured <b>→</b> a header, acting as a switcher</span></div>
+        <div class="row"><span class="k">demo</span><span class="v">login configured, not signed in <b>→</b> <code class="k">demo:alice</code>, sandboxed to a local catalog</span></div>
+        <div class="row"><span class="k">live</span><span class="v">signed in <b>→</b> the verified session cookie is the identity</span></div>
+      </div>
+      <p class="small">One function answers it, for every transport. <span class="ref">api/auth.py:81 · resolve_identity</span></p>
+    </div>
+    <div class="block on-amber">
+      <h3>Why one</h3>
+      <p class="small" style="margin:0">We had two. REST was tightened to require a real login. GraphQL kept the old behaviour. For a window, an unauthenticated caller could send a header saying "I am Alice" and receive Alice's documents. Perfectly permission-trimmed. Trimmed to the wrong person.</p>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 5 · 8:00</div>
+    <p>Let's follow an actual user. They land on the canvas, a board where you drag your data sources on as nodes. Before anything else happens, the server has to answer one question: who is this?</p>
+    <p>There is exactly one function in the entire codebase that answers it. Every transport calls it, the REST endpoints, the GraphQL layer, all of it.</p>
+    <p><strong>That is not tidiness, it is a scar.</strong> We used to have two resolvers. The REST path got tightened to require a real login. GraphQL kept its old behaviour. So for a window there, an unauthenticated caller could send a header saying "I am Alice" to the GraphQL endpoint and receive Alice's documents. Perfectly permission-trimmed documents. Trimmed to the wrong person.</p>
+    <p>The rule we took from that: <strong>a security decision belongs below every transport, not once per transport.</strong> Because the second copy is the one that drifts, and you will not notice.</p>
+  </div>
+</section>
+
+<!-- ═══ 6 · ENTRA CONCEPTS ══════════════════════════════════════════════════ -->
+<section class="slide" data-act="Identity">
+  <h2 class="tight">Entra gives you two kinds of power. Pick deliberately.</h2>
+  <div class="split center equal">
+    <div class="block on-blue">
+      <h3 style="color:var(--blue)">Delegated</h3>
+      <p class="small" style="margin:0 0 14px">The app acts <b>as the signed-in user</b>. The token carries their identity. It can never do more than that person could do themselves.</p>
+      <div class="gate pass" style="margin:0"><span class="lbl">we use this to touch data</span></div>
+    </div>
+    <div class="block on-amber">
+      <h3 style="color:var(--amber)">Application (app-only)</h3>
+      <p class="small" style="margin:0 0 14px">The app acts <b>as itself</b>, no user present. Tenant-wide power, so it needs an administrator to consent once.</p>
+      <div class="gate" style="margin:0"><span class="lbl">we use this to read the directory</span></div>
+    </div>
+  </div>
+  <p class="small" style="margin-top:26px;max-width:74ch">A tenant is one organization's directory. Your <code class="k">oid</code> inside it never changes, and it is the primary key of this entire product.</p>
+  <div class="notes">
+    <div class="hd">SLIDE 6 · 10:00</div>
+    <p>Now they click sign in. Let me spend a minute on Entra itself, because the distinction on this slide is the hinge of the whole design.</p>
+    <p>Entra ID is Microsoft's identity directory, it used to be called Azure AD. It holds an organization's users, its groups, and registrations for the apps allowed to talk to it. One organization is a tenant. Your identity inside that tenant is an object id, an "oid", and it never changes. That oid is the primary key of this entire product.</p>
+    <p>When you register an app, you ask for permissions, and they come in two flavours.</p>
+    <p><strong>Delegated</strong> permissions mean the app acts as the signed-in user. The token carries their identity. The app can never do more than that person could do themselves.</p>
+    <p><strong>Application</strong> permissions mean the app acts as itself, with no user present. That is tenant-wide power, so it needs an administrator to consent.</p>
+    <p>We use both, deliberately, for two different jobs. Application permission to read the directory, to find out which groups you belong to. Delegated permission to touch data, to run a query as you. <strong>That is the difference between "I need to know who you are" and "I need to act as you".</strong> Getting those backwards is how products end up with a service account that can read everything.</p>
+  </div>
+</section>
+
+<!-- ═══ 7 · THE CODE FLOW ═══════════════════════════════════════════════════ -->
+<section class="slide" data-act="Identity">
+  <h2 class="tight">Authorization code flow</h2>
+  <div class="grow">
+    <div class="seq">
+      <div class="lane"><h4>Browser</h4></div>
+      <div class="lane"><h4>DBSearch server</h4></div>
+      <div class="lane"><h4>Microsoft Entra</h4></div>
+      <div class="steps-abs">
+        <div class="msg"><div class="arrow to-r span-1-2"><span>GET /auth/login</span></div></div>
+        <div class="msg"><div class="arrow to-l span-1-2 b"><span>302 → login.microsoftonline.com  ?client_id &amp;redirect_uri &amp;scope &amp;state</span></div></div>
+        <div class="msg"><div class="arrow to-r span-1-3"><span>sign in · password · MFA · conditional access</span></div></div>
+        <div class="msg"><div class="arrow to-l span-1-3 b"><span>302 back  ?code=abc &amp;state=xyz</span></div></div>
+        <div class="msg"><div class="arrow to-r span-1-2"><span>GET /auth/callback?code=abc</span></div></div>
+        <div class="msg"><div class="arrow to-r span-2-3 g"><span>POST /token · code + client_secret</span></div></div>
+        <div class="msg"><div class="arrow to-l span-2-3 g"><span>id_token · access_token · refresh_token</span></div></div>
+        <div class="msg"><div class="arrow to-l span-1-2"><span>Set-Cookie: dbs_session</span></div></div>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:34px">The browser <strong>never holds a token</strong>. It holds a one-time voucher that is useless without our client secret.</p>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 7 · 12:00</div>
+    <p>Here is the flow. Watch what the browser is trusted with.</p>
+    <p>We redirect the user to Microsoft. They authenticate there, password, MFA, whatever conditional access policies the company has. We never see their password, which is the point.</p>
+    <p>Microsoft redirects them back to us with a code in the URL. <strong>That code is a one-time voucher with a short lifetime and it is completely useless on its own.</strong></p>
+    <p>Then our server, not the browser, posts that code to Microsoft's token endpoint together with our client secret. Only then do the actual tokens exist, over a direct TLS connection between our server and Microsoft.</p>
+    <p>So the browser never holds a token. Nothing sensitive lands in a URL bar, in browser history, or in a Referer header leaking to some analytics script.</p>
+    <p>We get three things back and each has a different job. The id_token says who you are. The access token lets us call one specific resource. The refresh token lets us get new access tokens later without dragging you through a login screen again, and we only get it because we explicitly asked for the offline_access scope.</p>
+  </div>
+</section>
+
+<!-- ═══ 8 · THREE TOKENS ════════════════════════════════════════════════════ -->
+<section class="slide" data-act="Identity">
+  <h2 class="tight">Three tokens come back. Three different jobs.</h2>
+  <div class="grow">
+    <p class="lede" style="margin-bottom:26px"><strong>OAuth</strong> answers "what may this app call?". <strong>OIDC</strong> answers "who is this person?". We ask for both in one round trip, which is why the scope string has two halves.</p>
+    <div class="rows">
+      <div class="row"><span class="k">id_token</span><span class="v"><b>Who you are.</b> Audience: our app. Lifetime: minutes. "This is Alice, oid 82d8…, tenant f713…"</span></div>
+      <div class="row"><span class="k">access_token</span><span class="v"><b>What we may call.</b> Audience: <b>one</b> resource, Graph or <code class="k">database.windows.net</code>. Lifetime: about an hour.</span></div>
+      <div class="row"><span class="k">refresh_token</span><span class="v"><b>Acting as you, later.</b> Audience: the token endpoint. Lifetime: days to months. Issued <b>only</b> because we asked for <code class="k">offline_access</code>.</span></div>
+    </div>
+    <div class="gate pass"><span class="lbl">we keep the third one · the first two are used and discarded</span></div>
+    <p class="small" style="max-width:78ch">That vaulted refresh token is what makes the whole product possible. Hold that thought until the core bet.</p>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 8 · 13:00</div>
+    <p>Quick vocabulary, because these three get conflated constantly and the difference is the product.</p>
+    <p>OAuth 2.0 answers "what may this application call" and hands you an access token. OIDC is a thin layer on top that answers "who is this person" and hands you an id_token. We ask for both in one round trip. That is why the scope string has two halves: openid, profile, email is the OIDC part; offline_access and the database scope is the OAuth part.</p>
+    <p><strong>The id_token</strong> is proof of identity, for us. It is addressed to our app, it lives for minutes, and it says: this is Alice, here is her object id, here is her tenant.</p>
+    <p><strong>The access token</strong> is addressed to exactly one resource. A token for Microsoft Graph cannot be presented to Azure SQL. That scoping is not a formality, it is what stops one leaked token from being a master key.</p>
+    <p><strong>The refresh token</strong> is the interesting one. It is addressed to the token endpoint, it lasts days to months, and it exists only because we explicitly asked for the offline_access scope. If you do not ask, you do not get one.</p>
+    <p>We keep that third one, in a server-side vault. The first two we use and throw away. <strong>And that vaulted refresh token is what makes the entire product possible, because it is what lets us later open a connection to a customer's database as the user rather than as ourselves.</strong> Hold that thought, I come back to it in about ten minutes.</p>
+  </div>
+</section>
+
+<!-- ═══ 9 · THE JWKS DECISION ═══════════════════════════════════════════════ -->
+<section class="slide" data-act="Identity">
+  <h2>We do not verify the id_token signature. Here is why that is correct.</h2>
+  <div class="split">
+    <div class="stack">
+      <p class="small">You verify a JWT signature when the token reached you through an <b>untrusted channel</b>: a browser handed it over, a client sent it in a header. You need proof nobody tampered with it.</p>
+      <div class="gate pass"><span class="lbl">that channel does not exist here</span></div>
+      <p class="small">This token is the response body of a request <b>our server</b> made, over TLS, to <code class="k">login.microsoftonline.com</code>, authenticated with our client secret. TLS already proved the origin.</p>
+    </div>
+    <div class="block on-rose">
+      <h3><span class="cross">✕</span>Flip any condition and it is critical</h3>
+      <ul class="plain" style="gap:9px">
+        <li><span>An implicit flow, where the browser hands you the token</span></li>
+        <li><span>An API accepting a bearer token from a client</span></li>
+      </ul>
+      <p class="small" style="margin:14px 0 0">The reasoning is entirely about the <b>channel</b>, never the token.</p>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 9 · 14:00</div>
+    <p>Here is a decision that gets challenged in every code review, so let me pre-empt it.</p>
+    <p>We read the user's oid straight out of the id_token's payload. We do not verify the JWT signature against Microsoft's public keys.</p>
+    <p>Why do you normally verify a JWT signature? Because you received the token from somewhere untrusted, a browser handed it to you, a client sent it in a header, and you need cryptographic proof that Microsoft actually issued it and nobody tampered with it.</p>
+    <p>That situation does not exist here. This token arrived as the response body of a direct TLS request that our server made to login.microsoftonline.com, authenticated with our client secret. There is no attacker position in the middle. TLS already proved the origin. The signature check would be re-proving the same fact.</p>
+    <p><strong>But, and this is the part to say out loud, flip any of those conditions and it becomes a critical vulnerability.</strong> An implicit flow, where the browser hands you the token: you must verify. An API accepting a bearer token from a client: you must verify.</p>
+    <p>The lesson I would actually take from this slide: <strong>write the why next to the decision.</strong> Without it, the next engineer either rips it out and adds latency, or copies the pattern somewhere it is genuinely unsafe.</p>
+  </div>
+</section>
+
+<!-- ═══ 10 · FOUR THINGS ═════════════════════════════════════════════════════ -->
+<section class="slide" data-act="Identity">
+  <h2 class="tight">Four things happen in the callback. Four different purposes.</h2>
+  <div class="grow">
+    <ol class="steps">
+      <li><b>Identity <span style="color:var(--faint);font-weight:400">· oid, tid, name</span></b><span>Who you are. Read once from the token, largely discarded.</span></li>
+      <li><b>Authorization <span style="color:var(--faint);font-weight:400">· transitive group oids</span></b><span>Graph tells us which groups you are in. <b style="color:var(--amber)">Transitive</b> matters: groups nest. Alice is in Deal Team, inside Sales, inside All Staff. A direct-membership query denies an entitled user, and the bug report will say "search is broken".</span></li>
+      <li><b>Delegation <span style="color:var(--faint);font-weight:400">· refresh token → server-side vault</span></b><span>Never in the cookie, never logged, never in a response body. This is the material that later lets us run a query <b>as you</b>.</span></li>
+      <li><b>Session <span style="color:var(--faint);font-weight:400">· signed cookie, httpOnly, 8h</span></b><span>An oid, a name, an email, an expiry. Nothing in that cookie is a capability.</span></li>
+    </ol>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 10 · 16:00</div>
+    <p>Four things happen in the callback, and they are four genuinely different purposes. People collapse them and that is where bugs live.</p>
+    <p><strong>One, identity.</strong> Who you are. Read once from the token and largely discarded.</p>
+    <p><strong>Two, authorization.</strong> We call Microsoft Graph and ask: what groups is this person in? Note the word transitive. Groups nest. Alice is in Deal Team, which sits inside Sales, which sits inside All Staff. A document shared with All Staff must reach her. If you query direct membership only, you deny an entitled user, and you will never get a bug report that says "transitive". You will get "search is broken".</p>
+    <p><strong>Three, the refresh token</strong> goes into a server-side vault. Never in the cookie, never logged, never in a response body. This is the material that later lets us run a query as this person. I will come back to it, because it is the centre of the product.</p>
+    <p><strong>Four, a signed session cookie</strong>, httpOnly, eight hours. It contains an oid, a name, an email, an expiry. That is all. No tokens, no permissions, no groups. Nothing in that cookie is a capability.</p>
+  </div>
+</section>
+
+<!-- ═══ 11 · THE NONE BUG ═══════════════════════════════════════════════════ -->
+<section class="slide" data-act="What went wrong">
+  <h2 class="tight">"I don't know" and "nothing" are different answers</h2>
+  <div class="split">
+    <div class="stack">
+<pre><span class="c"># before</span>
+def fetch_member_groups(...) -> list:
+    try:
+        return graph_call()
+    except Exception:
+        return <span class="r">[]</span>          <span class="c"># ← the whole bug</span>
+
+<span class="c"># after</span>
+    except Exception:
+        return <span class="g">None</span>        <span class="c"># unknown, NOT "no groups"</span></pre>
+      <p class="small"><code class="k">None</code> = the lookup failed. <code class="k">[]</code> = genuinely in no groups. Never cache the first as the second.</p>
+    </div>
+    <div class="stack">
+      <div class="block on-amber">
+        <h3>What the user saw</h3>
+        <p class="small" style="margin:0 0 12px">A two-second Graph blip got cached as a permanent fact: <i>this user belongs to no groups</i>. Under default-deny, that means they can see nothing. Until someone restarts the process.</p>
+        <p class="small" style="margin:0;color:var(--ink)">"I couldn't find anything you have access to about that."</p>
+        <p class="small" style="margin:6px 0 0">About a document they wrote.</p>
+      </div>
+      <p class="small">A restart, or scaling out to a fresh worker, did the same thing: a valid login with silently vanished permissions.</p>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 11 · 18:00</div>
+    <p>This is my favourite bug in the codebase and it takes thirty seconds to explain.</p>
+    <p>The group lookup returned a list. Empty list meant "this user is in no groups". And when the call to Microsoft failed, a timeout, a throttle, a two-second blip, it also returned an empty list, because what else do you return.</p>
+    <p>Then we added caching. Perfectly reasonable optimisation. <strong>And now a two-second network blip gets cached as a permanent fact: this user belongs to no groups.</strong> Which, under a default-deny system, means this user can see nothing. Until someone restarts the process.</p>
+    <p>And what did the user see? "I couldn't find anything you have access to about that." About a document they wrote.</p>
+    <p>So now the function returns None for failure and empty-list for genuinely-no-groups, and they are handled completely differently. A failed lookup is never cached. And there is a second piece: on any request where the process has no groups for a valid session, we re-resolve them. Because a restart, or scaling out to a fresh worker, used to leave you with a perfectly valid login and silently vanished permissions.</p>
+    <p><strong>The general lesson: "I don't know" and "nothing" are different answers, and if your type system cannot tell them apart, something eventually will, at the worst moment.</strong></p>
+  </div>
+</section>
+
+<!-- ═══ 12 · THE STATE ATTACK ═══════════════════════════════════════════════ -->
+<section class="slide" data-act="What went wrong">
+  <h2 class="tight">A signed expiry binds nothing</h2>
+  <div class="split wide-left">
+    <div class="stack">
+      <ol class="steps">
+        <li><b>Attacker fetches a valid <code class="k">state</code></b><span>The login endpoint is unauthenticated by definition. Request it, read the state out of the redirect header.</span></li>
+        <li><b>Victim clicks a callback carrying the attacker's <code class="k">code</code></b><span>Top-level navigation, so SameSite=Lax sends the victim's session cookie. We accept it.</span></li>
+        <li><b>We vault the <span style="color:var(--rose)">attacker's</span> refresh token under the <span style="color:var(--rose)">victim's</span> oid</b><span>The victim notices nothing and keeps working. Every query from that moment runs as the attacker.</span></li>
+      </ol>
+    </div>
+    <div class="block on-green">
+      <h3><span class="tick">✓</span>The fix, three parts</h3>
+      <ul class="plain green">
+        <li><span>a <b>random nonce</b>, mirrored into an httpOnly cookie the attacker cannot read or forge</span></li>
+        <li><span><b>HMAC'd</b> with an expiry, so a tampered state dies before any comparison</span></li>
+        <li><span><b>single-use</b>: the callback clears the cookie whatever the outcome</span></li>
+      </ul>
+      <p class="small" style="margin:16px 0 0">A state minted in one browser cannot validate in another.</p>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 12 · 20:00</div>
+    <p>One more security slide, because this one is genuinely subtle.</p>
+    <p>OAuth has a state parameter that round-trips through the identity provider. Textbook answer: it is CSRF protection. Our first version signed a timestamp. Tamper-proof, expires, looks fine.</p>
+    <p><strong>It binds nothing.</strong> Any browser's state validates in any other browser's callback. And our login endpoint is unauthenticated by definition, so an attacker just requests it and reads a perfectly valid state out of the redirect header.</p>
+    <p>Now, we support account linking, one session can hold a Microsoft credential and a Google credential. So: attacker starts a login, gets their own code, and lures a signed-in victim to click that callback URL. It is a top-level navigation, so SameSite=Lax sends the victim's session cookie. We accept it. And we vault the attacker's refresh token under the victim's identity.</p>
+    <p><strong>The victim notices nothing. They keep using the product. And every query they run from that moment executes as the attacker.</strong> That is not a session hijack, it is a credential swap, and it is far quieter.</p>
+    <p>The fix is three parts: the state is a random nonce, mirrored into an httpOnly cookie the attacker cannot read or forge; it is HMAC'd so a tampered one dies before comparison; and it is single-use, cleared on the callback whatever happens.</p>
+  </div>
+</section>
+
+<!-- ═══ 13 · CONNECTING A SOURCE ════════════════════════════════════════════ -->
+<section class="slide" data-act="Connecting">
+  <h2 class="tight">Connect a source: drag, configure, set who may see it</h2>
+  <div class="split">
+    <div class="stack">
+<pre>- id: azure-deals
+  kind: azure_sql
+  acl: [<span class="b">"82d85111-…"</span>]        <span class="c"># who may KNOW IT EXISTS</span>
+  config:
+    server: <span class="g">${AZURE_SQL_SERVER}</span>  <span class="c"># resolved server-side</span>
+    tables: [SalesLT.Orders]
+  <span class="a">delegation:</span>                  <span class="c"># ← "run queries as me"</span>
+    kind: entra_refresh</pre>
+      <p class="small">Connection values are environment references. A secret never travels to the browser.</p>
+    </div>
+    <div class="block on-rose">
+      <h3><span class="cross">✕</span>An empty ACL refuses to compose</h3>
+      <p class="small">Default-deny means an empty ACL is visible to nobody. Before this check, you got a green node saying <i>"connection healthy, a record round-tripped"</i>, and then every question answered "I couldn't find anything you have access to."</p>
+      <p class="small" style="margin:0"><b>Every affirmative signal said WORKING while the store was unreachable by construction.</b></p>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 13 · 22:00</div>
+    <p>Connecting a source is a drag-and-drop on the canvas. You fill in the connection fields, and note the values are environment references, resolved server-side, so a secret never travels to the browser. You set an ACL: the list of people who may know this source exists. And you flip one toggle: "queries run as the signed-in user". That toggle is the whole product, and I will unpack it on the next slide.</p>
+    <p>But look at the last block. A store with an empty ACL refuses to compose, and tells you why.</p>
+    <p>Here is what happened before that check existed. Default-deny means an empty ACL is visible to nobody. So you would connect a database, click Test Connection, and get a green node that says "connection healthy, a record round-tripped". It goes live. And then every single question returns "I couldn't find anything you have access to."</p>
+    <p>Every affirmative signal in the UI said WORKING while the store was unreachable by construction. That is worse than an error, because an error sends you to the right place. So: refuse, and say why.</p>
+    <p><strong>A component that cannot possibly work must never be allowed to look healthy.</strong></p>
+  </div>
+</section>
+
+<!-- ═══ 14 · THE CORE BET ═══════════════════════════════════════════════════ -->
+<section class="slide" data-act="The core bet">
+  <h2 class="tight">Two ways to build permission-aware federated search</h2>
+  <div class="split center equal">
+    <div class="block on-rose">
+      <h3><span class="cross">✕</span>Service account + filter it yourself</h3>
+      <p class="small">Connect as an account that can read everything, then filter results against a mapping you maintain of who may see what.</p>
+      <p class="small" style="margin:0">Easy, fast, and <b>every bug in that mapping is a silent breach</b>. Silent, because nothing errors. Somebody just receives rows they should not have.</p>
+    </div>
+    <div class="block on-green">
+      <h3><span class="tick">✓</span>Query as the user</h3>
+      <p class="small">Exchange the vaulted refresh token for a <b>source-scoped</b> credential. Open the connection as <b>them</b>.</p>
+      <ul class="plain green" style="gap:8px;margin-top:12px">
+        <li><span>Azure → Entra + SQL row-level security</span></li>
+        <li><span>GCP → Google sign-in + BigQuery row-access policies</span></li>
+        <li><span>AWS → STS + Lake Formation grants</span></li>
+      </ul>
+    </div>
+  </div>
+  <p class="claim" style="margin-top:34px;max-width:60ch">A bug in our code can produce <span class="hi">no results</span>.<br>It cannot produce <span class="lo">unauthorized rows</span>.</p>
+  <div class="notes">
+    <div class="hd">SLIDE 14 · 24:00 — THE SLIDE</div>
+    <p>This is the slide. If you remember one thing, this.</p>
+    <p>There are two ways to build permission-aware federated search.</p>
+    <p><strong>Option one, the one everybody builds:</strong> connect with a service account that can read everything, and filter the results yourself according to a mapping you maintain of who may see what. It is easy, it is fast, and every bug in that mapping is a silent data breach. Silent, because nothing errors. Somebody just receives rows they should not have, and nobody finds out for eighteen months.</p>
+    <p><strong>Option two, the one we took: query as the user.</strong> We take that refresh token from the vault, exchange it for a credential scoped to that specific source, and open the connection as them. Azure SQL then applies its own row-level security. BigQuery applies its own row-access policies. Lake Formation applies its own grants.</p>
+    <p>We are not in the identity-to-policy business. The enforcement point is the one the customer already audits, already trusts, and already has a compliance story for.</p>
+    <p><strong>And here is the property that follows, which is the sentence I would put on a billboard: a bug in our code can produce no results. It cannot produce unauthorized rows.</strong> We designed our failure mode. The worst thing a DBSearch bug does is annoy you.</p>
+    <p>The honest cost: a consent flow per source at onboarding, and one token exchange per user per source. We cache with a safety margin. That is a real setup cost, paid once, and it is the correct trade.</p>
+  </div>
+</section>
+
+<!-- ═══ 15 · FAIL CLOSED ════════════════════════════════════════════════════ -->
+<section class="slide" data-act="The core bet">
+  <h2 class="tight">Hold the bet everywhere, or you do not hold it</h2>
+  <div class="grow">
+    <div class="rows">
+      <div class="row"><span class="k" style="color:var(--rose)">refuse</span><span class="v">Azure SQL configured for delegation, but no delegated connection path available <b>→ refuse the query.</b> Never fall back to the service account. Falling back would work, would look correct, and would break the promise silently.</span></div>
+      <div class="row"><span class="k" style="color:var(--rose)">refuse</span><span class="v">A question routes to a Google-backed source, you have only linked Microsoft <b>→ refuse and say which cloud to connect.</b> Never substitute another cloud's credential.</span></div>
+      <div class="row"><span class="k" style="color:var(--rose)">refuse</span><span class="v">Binding a credential provider to a cloud: match by <b>parameter name</b>, never by function shape. Mis-attribute one and we post a Microsoft refresh token to Google's token endpoint.</span></div>
+    </div>
+    <p class="lede" style="margin-top:32px">That last one is not a failed query. It is transmitting one cloud's credential to another cloud.</p>
+    <p class="small" style="margin-top:14px">The comment in the code: <i>a security binding must never guess which cloud a credential belongs to.</i> Unrecognised shape, raise.</p>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 15 · 26:00</div>
+    <p>Once you make that bet, you have to hold it everywhere, and "fail closed" stops being a slogan and starts being annoying in a productive way.</p>
+    <p>If a store is configured for delegation but the delegated connection path is not available, a driver is missing, say, we refuse the query. We do not quietly fall back to the service account. <strong>Falling back would work. It would return correct-looking data. And it would break the promise silently, which is the worst possible outcome.</strong></p>
+    <p>If a question routes to a Google-backed source and you have only linked Microsoft, we refuse and tell you to connect Google. We never substitute another cloud's credential.</p>
+    <p>And my favourite one, which reads like paranoia until you think it through. When we bind a credential provider to a cloud, we match on parameter name, never on function shape. Because if we mis-attribute one, we would take a Microsoft refresh token and post it to Google's token endpoint. That is not a failed query, that is transmitting one cloud's credential to another cloud.</p>
+    <p>The comment in the code says: a security binding must never guess which cloud a credential belongs to. Unrecognised shape, raise an error. Never guess.</p>
+  </div>
+</section>
+
+<!-- ═══ 16 · THREE GATES ════════════════════════════════════════════════════ -->
+<section class="slide" data-act="Answering">
+  <h2 class="tight">Answering a question passes three gates</h2>
+  <div class="grow">
+    <div class="block on-blue">
+      <h3 style="color:var(--blue)">Gate 1 · Catalog visibility</h3>
+      <p class="small" style="margin:0">Not just "filter the results". Filters what the router may <b>consider</b>, and what it may <b>name in an explanation</b>. "I checked the Executive Compensation database and found nothing" leaks the existence of that database.</p>
+    </div>
+    <div class="gate"><span class="lbl">hereditary: cannot see the parent → cannot see anything under it</span></div>
+    <div class="block on-blue">
+      <h3 style="color:var(--blue)">Gate 2 · Authorize, per store</h3>
+      <p class="small" style="margin:0">The delegated credential. The query runs as you and the source enforces.</p>
+    </div>
+    <div class="gate"><span class="lbl">everything past here is already trimmed</span></div>
+    <div class="block on-blue">
+      <h3 style="color:var(--blue)">Gate 3 · Synthesis</h3>
+      <p class="small" style="margin:0">Merging is <b>subtractive only</b>. We can drop and reorder. We can never add. No path reintroduces what a gate removed.</p>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 16 · 28:00</div>
+    <p>Now the question itself. Three gates.</p>
+    <p><strong>Gate one is catalog visibility</strong>, and it is stricter than it sounds. It does not just filter results, it filters what the router is even allowed to consider, and what it is allowed to name in an explanation. Because "I checked the Executive Compensation database and found nothing" leaks the existence of that database, and existence is information.</p>
+    <p>And it is hereditary: if you cannot see a business unit, you cannot see anything under it, even if the individual store's ACL would admit you. That closes what is called an existence probe, using a child to learn about a parent.</p>
+    <p>There is a corollary we hold carefully: <strong>pinning a source that does not exist and pinning a source you cannot see return the identical response.</strong> An invisible source must be indistinguishable from a nonexistent one.</p>
+    <p><strong>Gate two</strong> is the per-source authorization we just covered, the delegated credential.</p>
+    <p><strong>Gate three:</strong> everything arriving at synthesis has already been trimmed, so merging is only ever subtractive. We can drop things and reorder them. We can never add. There is no path by which the final step reintroduces something a gate removed.</p>
+  </div>
+</section>
+
+<!-- ═══ 17 · ROUTING ════════════════════════════════════════════════════════ -->
+<section class="slide" data-act="Answering">
+  <h2 class="tight">One question, two databases, two clouds, never joined before</h2>
+  <div class="split wide-left">
+    <div class="stack">
+<pre><span class="w">"which products have the most support tickets,
+ and what revenue do they bring?"</span>
+
+  <span class="c">split ─┬─</span> tickets  <span class="b">→ Postgres</span>
+         <span class="c">└─</span> revenue  <span class="b">→ Azure SQL</span>
+
+  <span class="a">half A</span> returns its top SKUs by ticket count
+         <span class="c">└─ those keys constrain half B's query</span>
+            <span class="c">(allowlist-sanitised, quote-safe,</span>
+            <span class="g"> and never entered an LLM prompt)</span></pre>
+      <p class="small">A mechanical semi-join across two clouds. Not a hallucinated one.</p>
+    </div>
+    <div class="stack">
+      <ul class="plain">
+        <li><span>Each half routes <b>independently</b> over your visible sources</span></li>
+        <li><span>A slow or broken source is <b>dropped and disclosed</b>, never fatal</span></li>
+        <li><span>A cost ceiling caps how many sources one question may hit, and <b>says so</b> when it bites</span></li>
+      </ul>
+      <div class="gate pass"><span class="lbl">no silent caps, ever</span></div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 17 · 29:30</div>
+    <p>Briefly, the routing, because this is the visible cleverness.</p>
+    <p>We classify the question, and if it is compound we split it, and each half routes independently over your visible sources. So the tickets half finds the support database, the revenue half finds the sales database. Neither of those systems has ever heard of the other.</p>
+    <p>Then we execute in parallel with a deadline. If one source hangs or errors, it is dropped and the answer still comes back, with a line saying which source was omitted and why. There is a cost ceiling on how many sources one question may hit, and when it bites, it is disclosed.</p>
+    <p><strong>And the piece I am proudest of: the two halves get aligned.</strong> The first half tells us which products actually top the ticket count, and those keys constrain the second half's query. A semi-join, across two databases in two clouds that have never been joined before. The values are allowlist-sanitised and quote-safe, and critically they never enter an LLM prompt. It is a mechanical join, not a hallucinated one.</p>
+  </div>
+</section>
+
+<!-- ═══ 18 · HONESTY ════════════════════════════════════════════════════════ -->
+<section class="slide" data-act="Answering">
+  <h2 class="tight">Not knowing is an acceptable answer. Guessing is not.</h2>
+  <div class="split">
+    <div class="stack">
+      <div class="rows">
+        <div class="row"><span class="k">EMPTY</span><span class="v">I ran the query and no rows matched</span></div>
+        <div class="row"><span class="k" style="color:var(--amber)">DECLINED</span><span class="v">This question is not about anything I hold, so I am not going to answer it</span></div>
+      </div>
+      <div class="block on-amber">
+        <h3>How we learned the difference</h3>
+        <p class="small" style="margin:0">Someone asked how many support tickets there were. It routed to a sales database, which had none, so it counted <b>order lines</b> and called them support tickets. Confident number. Real citation. Completely fabricated meaning.</p>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="block on-green">
+        <h3><span class="tick">✓</span>Every answer carries</h3>
+        <ul class="plain green" style="gap:9px">
+          <li><span>citations, with the <b>exact query we ran</b></span></li>
+          <li><span>a proof token bound to you: click <b>verify</b> and it re-executes under your own permissions, live</span></li>
+          <li><span>what was dropped, declined or capped, and why</span></li>
+        </ul>
+      </div>
+      <p class="lede" style="font-size:20px">You do not have to trust us. You can check.</p>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 18 · 31:00</div>
+    <p>Last technical slide, and it is the one that makes this a product rather than a demo.</p>
+    <p>There is a distinction in the code between EMPTY and DECLINED. Empty means I ran the query and no rows matched. Declined means this question is not about anything I hold, so I am not going to answer it.</p>
+    <p>We learned that distinction the hard way. Somebody asked how many support tickets there were. The question routed to a sales database, which had no tickets, so it counted order lines and called them support tickets. <strong>Confident number. Real citation. Completely fabricated meaning.</strong></p>
+    <p>So now: a source with no relevant tables declines, out loud, and that decline appears in the answer. There are guards on the generated SQL, it may only touch the tables the question actually retrieved, and only read.</p>
+    <p>And every answer carries a citation with a proof: the exact query we ran, signed with a token bound to you. Click verify and it re-executes under your own permissions, live, in front of you. <strong>You do not have to trust us. You can check.</strong></p>
+    <p>The distinction that runs through all of it: not knowing is an acceptable answer. Guessing is not.</p>
+  </div>
+</section>
+
+<!-- ═══ 19 · LESSONS ════════════════════════════════════════════════════════ -->
+<section class="slide" data-act="Closing">
+  <h2 class="tight">Five things I would carry anywhere</h2>
+  <div class="grow">
+    <ol class="steps">
+      <li><b>Put security decisions below every transport</b><span>Not once per transport. The second copy is the one that drifts, and you will not notice.</span></li>
+      <li><b>"I don't know" and "nothing" are different answers</b><span>Make your types say so, before someone adds a cache.</span></li>
+      <li><b>A broken thing must never look healthy</b><span>A green light on a dead component is worse than a red one, because a red one sends you to the right place.</span></li>
+      <li><b>Never let a security binding guess</b><span>Unrecognised means refuse. Guessing which cloud a credential belongs to is how you transmit one to another.</span></li>
+      <li><b>Choose your failure mode on purpose</b><span>We pushed enforcement down into the systems that already own it, so the worst our bugs can do is return nothing. Every product makes this choice. Most make it by accident.</span></li>
+    </ol>
+  </div>
+  <div class="notes">
+    <div class="hd">SLIDE 19 · 33:00</div>
+    <p>To close.</p>
+    <p>We wrote the laws before we wrote the features. That felt slow for about two weeks and has paid for itself many times over, because the gate catches things at design time, when they cost an afternoon, instead of at three in the morning in front of a customer.</p>
+    <p>Five things I would carry to any system that decides who sees what.</p>
+    <p><strong>Put security decisions below every transport</strong>, not once per transport. The second copy is the one that drifts.</p>
+    <p><strong>"I don't know" and "nothing" are different answers.</strong> Make your types say so.</p>
+    <p><strong>Something that cannot possibly work must never be allowed to look healthy.</strong> A green light on a dead component is worse than a red one.</p>
+    <p><strong>Never let a security binding guess.</strong> Unrecognised means refuse.</p>
+    <p>And the big one: <strong>choose your failure mode on purpose.</strong> We pushed enforcement down into the systems that already own it, so the worst thing our bugs can do is return nothing. Every product makes this choice. Most make it by accident.</p>
+    <p>Thank you.</p>
+  </div>
+</section>
+
+</div>
+
+<div class="footer">
+  <span class="act" id="act">Opening</span>
+  <span class="count"><b id="cur">1</b> / <span id="tot">18</span></span>
+</div>
+
+<div class="hint">← → to move · S notes · ? help</div>
+
+<div class="help" id="help">
+  <div class="panel">
+    <h3>Presenting</h3>
+    <dl>
+      <dt>← → space</dt><dd>Previous / next slide</dd>
+      <dt>Home End</dt><dd>First / last slide</dd>
+      <dt>1 … 9</dt><dd>Jump to slide</dd>
+      <dt>S</dt><dd>Toggle speaker notes</dd>
+      <dt>F</dt><dd>Fullscreen</dd>
+      <dt>P</dt><dd>Print / export to PDF</dd>
+      <dt>?</dt><dd>This panel</dd>
+    </dl>
+  </div>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var i = 0;
+  var cur = document.getElementById('cur');
+  var tot = document.getElementById('tot');
+  var act = document.getElementById('act');
+  var bar = document.getElementById('progress');
+  tot.textContent = slides.length;
+
+  function show(n){
+    n = Math.max(0, Math.min(slides.length - 1, n));
+    if (n === i && slides[i].classList.contains('active')) return;
+    slides[i].classList.remove('active');
+    i = n;
+    slides[i].classList.add('active');
+    cur.textContent = i + 1;
+    act.textContent = slides[i].dataset.act || '';
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+    document.body.classList.add('started');
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); show(i + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp')            { e.preventDefault(); show(i - 1); }
+    else if (k === 'Home')                                    { e.preventDefault(); show(0); }
+    else if (k === 'End')                                     { e.preventDefault(); show(slides.length - 1); }
+    else if (k === 's' || k === 'S')  document.body.classList.toggle('notes-on');
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (k === 'p' || k === 'P') { e.preventDefault(); window.print(); }
+    else if (k === '?' || k === '/') { e.preventDefault(); document.body.classList.toggle('help-on'); }
+    else if (k === 'Escape') document.body.classList.remove('help-on');
+    else if (k >= '1' && k <= '9')  show(parseInt(k, 10) - 1);
+  });
+
+  document.getElementById('help').addEventListener('click', function(){
+    document.body.classList.remove('help-on');
+  });
+
+  // click right half = forward, left half = back
+  document.getElementById('deck').addEventListener('click', function(e){
+    if (document.body.classList.contains('help-on')) return;
+    show(e.clientX > window.innerWidth / 2 ? i + 1 : i - 1);
+  });
+
+  if (/[?&]export=1/.test(location.search)) document.body.classList.add('export');
+
+  var start = parseInt((location.hash || '').slice(1), 10);
+  if (start >= 1 && start <= slides.length) show(start - 1);
+  else { bar.style.width = (1 / slides.length * 100) + '%'; act.textContent = slides[0].dataset.act; }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dbsearch.ai/boundary.schema.json",
+  "title": "DBSearch.AI Control-plane Uplink Boundary Contract",
+  "description": "The ONLY payloads permitted to cross UP from a customer data plane to the control plane (SKILL.md LAW 1, ADR 0002). Telemetry/metadata only. No document content, names, queries, or answers — ever. additionalProperties:false at root makes any unexpected field a violation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tenant_id", "event", "ts"],
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "Opaque tenant id — NOT a customer name.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "event": {
+      "type": "string",
+      "enum": ["ingest.completed", "query.served", "source.synced", "sync.error", "heartbeat", "proposal.drafted", "api_key.created", "api_key.revoked"]
+    },
+    "counts": {
+      "type": "object",
+      "description": "Integer counters only — never identifiers or content.",
+      "additionalProperties": { "type": "number" }
+    },
+    "cost": {
+      "type": "object",
+      "description": "Usage/cost meters for billing (LAW 8).",
+      "additionalProperties": { "type": "number" }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": { "type": ["number", "string", "boolean"] }
+    },
+    "ts": { "type": "string", "description": "ISO-8601 timestamp." }
+  },
+  "x-forbidden-keys": [
+    "text", "content", "body", "snippet", "chunk", "title", "query",
+    "filename", "file_name", "answer", "document", "doc", "email", "name",
+    "uri", "url", "path", "user", "embedding"
+  ]
+}

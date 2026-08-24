@@ -1,0 +1,82 @@
+{
+  "_provenance": {
+    "captured": "2026-07-31",
+    "rig": "SELFHOST_BACKEND=memory-ollama-embed, OLLAMA_EMBED_MODEL=nomic-embed-text, OLLAMA_CHAT_MODEL=llama3.1:8b, port 8099",
+    "pack_hash": "45033e201713",
+    "commit_state": "BEFORE the #461 fix - LlamaLlm had no generate_sql, so router_api's capability gate fell back to keyword_sql_generator",
+    "how": "POST /router/ask as alice (X-DBSearch-User), verbatim answer text and the SQL carried on the returned citation",
+    "why_committed": "so every notebook here reads a fixed artifact instead of needing a live server and a model - the numbers cannot drift under the prose"
+  },
+
+  "sql_path": [
+    {
+      "id": "B-001",
+      "question": "What was the total marketing spend in the US on paid search?",
+      "gold_sql": "SELECT SUM(amount) FROM marketing_spend WHERE region='us' AND channel='paid-search'",
+      "generated_sql": "SELECT SUM(region) AS total_region FROM marketing_spend",
+      "answer": "I don't have that information.",
+      "routed": ["synapse"],
+      "defect": "sums a TEXT column, no WHERE clause"
+    },
+    {
+      "id": "B-002",
+      "question": "How much did the US region spend on the paid-search channel?",
+      "gold_sql": "SELECT SUM(amount) FROM marketing_spend WHERE region='us' AND channel='paid-search'",
+      "generated_sql": "SELECT * FROM marketing_spend LIMIT 5",
+      "answer": "The US region spent $420,000 on the paid-search channel ( Passage [1] ) and $392,000 on the paid-search channel ( Passage [2] ).",
+      "routed": ["synapse"],
+      "defect": "no aggregation; two raw rows reported as the answer - a confidently WRONG number, not an abstention"
+    },
+    {
+      "id": "B-003",
+      "question": "What is the combined amount spent on paid search advertising in the United States?",
+      "gold_sql": "SELECT SUM(amount) FROM marketing_spend WHERE region='us' AND channel='paid-search'",
+      "generated_sql": "SELECT * FROM marketing_spend LIMIT 5",
+      "answer": "I don't have that information - [6] states that an aggregate is computed across every matching record, but it doesn't provide a combined amount for pa",
+      "routed": ["synapse"],
+      "defect": "no aggregation at all (answer truncated at 150 chars on capture)"
+    },
+    {
+      "id": "B-004",
+      "question": "What was the total US paid search advertising expenditure?",
+      "gold_sql": "SELECT SUM(amount) FROM marketing_spend WHERE region='us' AND channel='paid-search'",
+      "generated_sql": "SELECT SUM(region) AS total_region FROM marketing_spend",
+      "answer": "I don't have that information.",
+      "routed": ["synapse"],
+      "defect": "sums a TEXT column, no WHERE clause"
+    }
+  ],
+
+  "doc_path": [
+    {
+      "id": "A-004",
+      "question": "Is there a minimum length of employment required before an employee can take parental leave?",
+      "key_facts": ["no minimum service requirement"],
+      "answer": "No, there is no minimum length of employment required before an employee can take parental leave [1].",
+      "routed": ["hr-wiki"],
+      "verdict": "CORRECT - scored as a failure because the gold fact is phrase-matched and the model paraphrased it"
+    },
+    {
+      "id": "G-005",
+      "question": "Is there an Exec Comp data source connected here?",
+      "answerable": false,
+      "key_facts": [],
+      "answer": "No, there is no Exec Comp data source connected here. [n] does not mention any connection to an \"Exec Comp\" data source.",
+      "verdict": "CORRECT REFUSAL - scored as a failure because this wording is absent from _ABSTAIN_MARKERS"
+    },
+    {
+      "id": "C-001",
+      "question": "Which product SKU has the most support tickets, and what is its total revenue?",
+      "key_facts": ["HX-90", "1450000"],
+      "answer": "The product SKU with the most support tickets is HX-90 (tickets T-1001 to T-1004). \n\nI don't have that information.",
+      "verdict": "REAL failure - got the SKU, never federated to revenue"
+    },
+    {
+      "id": "D-002",
+      "question": "What is our best-selling product according to sales data and warehouse reviews?",
+      "key_facts": ["Aurora Desk Lamp", "warm glow dimmer"],
+      "answer": "I don't have that information - the provided context does not mention sales data or warehouse reviews for a specific product to determine our best-selling product.",
+      "verdict": "REAL failure - cross-store federation returned nothing"
+    }
+  ]
+}

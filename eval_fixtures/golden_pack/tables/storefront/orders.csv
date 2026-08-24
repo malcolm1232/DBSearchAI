@@ -1,0 +1,9 @@
+order_id,customer_id,item,amount
+5001,29485,widget-a,540
+5002,29485,widget-b,220
+5003,29485,widget-c,175
+5004,18823,gizmo-q,300
+5005,18823,gizmo-r,410
+5006,40112,widget-a,90
+5007,40112,thingamajig,260
+5008,55290,gizmo-r,150

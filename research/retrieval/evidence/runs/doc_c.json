@@ -1,0 +1,404 @@
+{
+ "key": {
+  "profile": "semantic",
+  "embedding": "nomic-embed-text",
+  "chat_model": "llama3.1:8b",
+  "pack_hash": "856e2b986d6102b4e3434d133a5e5d1b0896efbcf5888812b38546dd6896a6e0"
+ },
+ "slices": {
+  "A|plain|dev": {
+   "n": 3,
+   "n_clusters": 3,
+   "passed": 3,
+   "failed_clusters": []
+  },
+  "B|plain|dev": {
+   "n": 4,
+   "n_clusters": 4,
+   "passed": 3,
+   "failed_clusters": [
+    "B-002"
+   ]
+  },
+  "G|plain|dev": {
+   "n": 3,
+   "n_clusters": 3,
+   "passed": 3,
+   "failed_clusters": []
+  },
+  "LAW2|plain|dev": {
+   "n": 1,
+   "n_clusters": 1,
+   "passed": 1,
+   "failed_clusters": []
+  }
+ },
+ "items": [
+  {
+   "id": "A-001",
+   "cluster": "A-001",
+   "capability": "A",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": true,
+     "routing_precision": 1.0,
+     "doc_recall_at_k": 0.5,
+     "doc_mrr": 1.0,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": 1.0,
+     "execution_accuracy": null,
+     "abstained_ok": null,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "A-002",
+   "cluster": "A-002",
+   "capability": "A",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": true,
+     "routing_precision": 1.0,
+     "doc_recall_at_k": 1.0,
+     "doc_mrr": 1.0,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": 1.0,
+     "execution_accuracy": null,
+     "abstained_ok": null,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "A-003",
+   "cluster": "A-003",
+   "capability": "A",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": true,
+     "routing_precision": 1.0,
+     "doc_recall_at_k": 0.75,
+     "doc_mrr": 1.0,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": 1.0,
+     "execution_accuracy": null,
+     "abstained_ok": null,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "B-001",
+   "cluster": "B-001",
+   "capability": "B",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": true,
+     "routing_precision": 1.0,
+     "doc_recall_at_k": 1.0,
+     "doc_mrr": 1.0,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": 1.0,
+     "execution_accuracy": null,
+     "abstained_ok": null,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "B-002",
+   "cluster": "B-002",
+   "capability": "B",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": false,
+   "attribution": "synthesis-miss",
+   "stage1": {
+    "metrics": {
+     "routing_hit": true,
+     "routing_precision": 1.0,
+     "doc_recall_at_k": 0.5,
+     "doc_mrr": 1.0,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": 0.0,
+     "execution_accuracy": null,
+     "abstained_ok": null,
+     "leak": false
+    },
+    "failures": [
+     "key-facts"
+    ]
+   }
+  },
+  {
+   "id": "B-003",
+   "cluster": "B-003",
+   "capability": "B",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": true,
+     "routing_precision": 1.0,
+     "doc_recall_at_k": 1.0,
+     "doc_mrr": 1.0,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": 1.0,
+     "execution_accuracy": null,
+     "abstained_ok": null,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "B-004",
+   "cluster": "B-004",
+   "capability": "B",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": true,
+     "routing_precision": 1.0,
+     "doc_recall_at_k": 1.0,
+     "doc_mrr": 1.0,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": 1.0,
+     "execution_accuracy": null,
+     "abstained_ok": null,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "G-001",
+   "cluster": "G-001",
+   "capability": "G",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": null,
+     "routing_precision": null,
+     "doc_recall_at_k": null,
+     "doc_mrr": null,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": null,
+     "execution_accuracy": null,
+     "abstained_ok": true,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "G-002",
+   "cluster": "G-002",
+   "capability": "G",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": null,
+     "routing_precision": null,
+     "doc_recall_at_k": null,
+     "doc_mrr": null,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": null,
+     "execution_accuracy": null,
+     "abstained_ok": true,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "G-003",
+   "cluster": "G-003",
+   "capability": "G",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": null,
+     "routing_precision": null,
+     "doc_recall_at_k": null,
+     "doc_mrr": null,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": null,
+     "execution_accuracy": null,
+     "abstained_ok": true,
+     "leak": false
+    },
+    "failures": []
+   }
+  },
+  {
+   "id": "LAW2-001",
+   "cluster": "LAW2-001",
+   "capability": "LAW2",
+   "hardness": [
+    "plain"
+   ],
+   "mode": "dev",
+   "passed": true,
+   "attribution": "pass",
+   "stage1": {
+    "metrics": {
+     "routing_hit": true,
+     "routing_precision": 1.0,
+     "doc_recall_at_k": 1.0,
+     "doc_mrr": 1.0,
+     "chunk_recall_at_k": null,
+     "table_hit": null,
+     "distractor_cited": null,
+     "forbidden_store_routed": false
+    },
+    "failures": []
+   },
+   "stage2": {
+    "metrics": {
+     "fact_recall": 1.0,
+     "execution_accuracy": null,
+     "abstained_ok": null,
+     "leak": false
+    },
+    "failures": []
+   }
+  }
+ ],
+ "notes": "auth=dev base=http://127.0.0.1:8099 tier=full"
+}

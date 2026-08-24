@@ -1,0 +1,90 @@
+/* src/dbsearch/server/static/css/proofs.css
+ *
+ * The Sources rail's appearance, shared by /canvas and /ask (#689, ADR 0025).
+ *
+ * MOVED OUT OF canvas.css, for the same reason ui/proofs.js was moved out of canvas.js: two
+ * surfaces that explain an answer differently is #689 one layer out, and two stylesheets is
+ * how that starts. Every rule below is the canvas's, unchanged in value.
+ *
+ * WHAT CHANGED IS ONLY THE SCOPE, from `.canvas-surface` to `.proof-host` - a class the
+ * CONTAINER of a rendered block carries, on either surface. Same specificity (0,2,0), so
+ * nothing about how these rules compete with app.css changes. canvas.css's header explains
+ * why an unscoped selector here would be unsafe: this file and app.css share 17 class names,
+ * `.sources` among them, and an unscoped `.sources` would reach Ask's citation panel.
+ *
+ * THE PALETTE IS THE OTHER HALF, and it is where the first version of this file was WRONG in
+ * a way worth recording. These rules were written against the canvas's own token names -
+ * `--border-soft`, `--panel-2`, `--text` - which are declared on `.canvas-surface` and DO NOT
+ * EXIST on the shell. Rendered on Ask without them every border and button background
+ * silently resolves to nothing, and the rail looks broken in exactly the way a reader would
+ * blame on the feature.
+ *
+ * The obvious fix was to declare the three names on `.proof-host` in terms of the shell's
+ * tokens, with a comment claiming the canvas's own declarations would still win inside it "by
+ * proximity". That is false, and backwards: a custom property declared ON AN ELEMENT beats one
+ * INHERITED from an ancestor, so `#qresult.proof-host` would have taken the alias and the
+ * canvas would have quietly repainted - `--border-soft` shifting to its `--border` value, and
+ * `--panel-2` resolving to `var(--surface-2)`, a shell token that does not exist inside the
+ * canvas at all, leaving every Verify data button with no background.
+ *
+ * So the alias layer belongs to ASK'S CONTAINER, not to the shared scope. `.proof-host` carries
+ * appearance only and declares no token; the canvas keeps inheriting its palette from
+ * `.canvas-surface` exactly as before, and `.ask-proofs` maps the three names onto the shell's.
+ * Each surface keeps its own colours - the arrangement #643 chose when the two palettes met.
+ */
+
+.proof-host .fnref {cursor:pointer;color:var(--accent,#6cf);font-size:10px;vertical-align:super}
+.proof-host .sources {margin-top:10px;font-size:12px}
+.proof-host .sources>.shdr {font-weight:600;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.proof-host .sources .src {padding:8px 10px;margin:6px 0;border:1px solid var(--border-soft);border-radius:8px}
+.proof-host .src .snum {display:inline-block;min-width:20px;font-weight:700;color:var(--accent,#6cf)}
+.proof-host .src .ssys {font-weight:600}
+.proof-host .src .stag {font-family:var(--mono);font-size:9.5px;padding:1px 6px;border-radius:20px;border:1px solid var(--border-soft);color:var(--muted);margin-left:6px}
+/* #724: a document that was READ but that the answer never points at. It stays on the list —
+   it is honestly part of what the model was handed — but it must not read as support the
+   answer did not claim, so it is dimmed and its number loses the accent the cited rows wear.
+   Contrast is deliberately kept above the muted-text floor: this is de-emphasis, not hiding. */
+.proof-host .sources .src--unused {opacity:.62;border-style:dashed}
+.proof-host .src--unused .snum {color:var(--muted)}
+.proof-host .src .sloc {opacity:.65;font-size:11px;margin-left:26px}
+.proof-host .src .osnip {opacity:.85;font-size:11px;margin:4px 0 6px 26px;font-family:var(--mono)}
+.proof-host .src .sacts {margin-left:26px;display:flex;gap:6px;flex-wrap:wrap}
+.proof-host .src .sbtn {cursor:pointer;font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border-soft);background:var(--panel-2);color:var(--text)}
+.proof-host .src .sbtn:hover {border-color:var(--accent,#6cf)}
+.proof-host .src .sout {margin:6px 0 0 26px;font-size:11px}
+.proof-host .src .sout pre {white-space:pre-wrap;word-break:break-all;font-family:var(--mono);font-size:10.5px;margin:2px 0}
+.proof-host .src .sout table {border-collapse:collapse;margin-top:4px}
+.proof-host .src .sout td, .proof-host .src .sout th {border:1px solid var(--border-soft);padding:2px 6px;font-size:10.5px}
+.proof-host .src.hl {border-color:var(--accent,#6cf);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent,#6cf) 20%, transparent)}
+
+/* ── Ask's own framing ────────────────────────────────────────────────────────────────────
+ *
+ * #629 collapsed Ask's apparatus to one line that opens on demand, and that discipline is
+ * load-bearing on a CHAT surface in a way it is not on the canvas: the canvas shows one
+ * answer at a time, a thread shows ten, and ten open SQL rails is a wall. So the same rail
+ * arrives closed here, headed by a summary that says how many sources there are.
+ *
+ * It OPENS ITSELF when a reader clicks an [n] marker in the answer (surfaces/ask.js), because
+ * the marker is a promise that the source is reachable, and a click that silently did nothing
+ * because the container was closed would break that promise.
+ */
+.ask-proofs {
+  margin-top:8px;
+  /* The shell's equivalents of the three canvas token names the rules above read. Declared
+     HERE and not on `.proof-host`, so the canvas keeps inheriting its own palette - see the
+     header for the version of this that was wrong and what it would have repainted. */
+  --border-soft: var(--border);
+  --panel-2: var(--surface-2);
+  --text: var(--ink);
+}
+.ask-proofs > summary {
+  cursor:pointer; font-size:12px; color:var(--muted); list-style:none;
+  padding:2px 0; user-select:none;
+}
+.ask-proofs > summary::-webkit-details-marker {display:none}
+.ask-proofs > summary .tri {display:inline-block;transition:transform .12s ease;margin-right:4px}
+.ask-proofs[open] > summary .tri {transform:rotate(90deg)}
+.ask-proofs > summary:hover {color:var(--ink)}
+.ask-proofs > summary:focus-visible {outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+/* The rail's own top margin is already spacing it from the summary. */
+.ask-proofs .sources {margin-top:4px}

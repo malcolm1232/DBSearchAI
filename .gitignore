@@ -1,0 +1,123 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Env / secrets — NEVER commit (LAW 1 hygiene)
+.env
+*.local
+secrets/
+scratchpad/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Added by board-steward — local board data may contain secrets
+board/
+board/board.json
+board/index.json
+board/extraction_snapshot.json
+board/recon_pending.json
+board/.replay_state.json
+
+# board-steward tool scratch
+.board-backfill.log
+
+# Local agent/session scratch — never commit
+.claude/
+.superpowers/
+
+# Demo corpus — trustworthy public PDFs, not committed
+sample_corpus/
+.env.entra
+.env.local
+
+# Archived test datasets (moved out of ~/.cache; not part of the product)
+.setaside_datasets/
+
+# #344/#349: the presentation deck SOURCE is tracked; the rendered slides are not.
+# export.sh regenerates them from deck.html, so 4.4MB of PNGs would be pure repo bloat.
+docs/presentation/slides/
+
+# Personal / customer documents used as an eval corpus - NEVER commit content (#487).
+# The pack that references these keeps only DERIVED metadata; the documents stay local.
+unstructured documents/
+
+# Ad-hoc .env backups taken before a credential rotation (e.g. .env.bak-260806-searchkey).
+# These hold live secrets - 13 KEY/SECRET/TOKEN entries in the one that prompted this line -
+# and the bare `.env` rule above does not match them. Ignored rather than deleted: they are
+# somebody's rollback path, and losing that is worse than an untidy working directory.
+.env.bak-*
+.env.bak.*
+
+# Point-in-time dumps taken before destructive ops (backups/dbsdemo-search-260806).
+backups/
+
+# ==========================================================================================
+# #685 - THE CURATED PUBLIC TREE. This repo is going public and becomes the primary; the
+# material below stays on disk and stays reviewable, it is simply not part of the product
+# anyone clones. Untracked with `git rm --cached`, never deleted.
+#
+# Two things to know before adding to this list. First, ignoring a file does NOT remove it
+# from the 930 commits already in history - #433's filter-repo pass has to strip these same
+# paths or they are public regardless. Second, prefer PARAMETERISING a file over exiling it:
+# a script that hardcodes our resource names is more useful to everyone as a script that
+# takes them as arguments.
+# ==========================================================================================
+
+# Session logs and working plans - the narrative of how it was built, not the product.
+docs/HANDOVER*
+docs/superpowers/
+
+# Live infrastructure state, cost and prod runbooks. Names real Azure resources.
+docs/AZURE_DEMO_STATUS.md
+docs/AZURE_FLEET_STATE.md
+docs/AZURE_TEST_RUNBOOK.md
+docs/COST_ZERO_IDLE.md
+docs/DEPLOY_CONVERSATION_SHARING.md
+docs/E2EDBS_SKILL.md
+docs/GOAL_ACCEPTANCE.md
+docs/FINDINGS_260803_what_breaks_and_why.md
+site/NEXT_SESSION_TODO.md
+
+# Operational scripts bound to OUR live Azure fleet (dbsearch-live / dbslivesqlcf5535).
+# Not secrets - but they provision and probe one specific subscription, so they are ours to
+# run rather than a contributor's. Generic tooling (run_tests.py, golden_runner.py, ...) stays.
+scripts/live_entra_up.sh
+scripts/probe_identity.py
+scripts/provision_aw_users.py
+scripts/seed_azure_fleet.py
+scripts/seed_wide_schema.py
+scripts/setup_sql_entra.sh
+scripts/synapse_lifecycle.sh
+
+# Business and brand material.
+Reddit Marketing.txt
+brand_linkedin/
+design/
+docs/PITCH.md
+
+# #692: third-party datasets we may not redistribute. MovieLens' GroupLens terms forbid
+# redistribution outright; Olist is CC BY-NC-SA (NonCommercial, and there is a paid tier);
+# Baseball Databank is CC BY-SA. None was attributed. scripts/build_real_pack.py rebuilds
+# the pack locally from your own download, so nothing is lost by not shipping it.
+eval_fixtures/golden_pack_real/
+
+# The DOM guards jsdom (#792). Declared in tests/package.json, lockfile TRACKED so
+# `npm ci --prefix tests` is deterministic - the tree itself is not.
+tests/node_modules/

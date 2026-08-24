@@ -1,0 +1,625 @@
+<title>DBSearch Data Canvas</title>
+<style>
+  :root{
+    --bg:#0f111a; --canvas:#0c0e15; --dot:#20263a;
+    --panel:#161925; --panel-2:#1e2230; --elev:#242a3b;
+    --border:#2a3050; --border-soft:#232840;
+    --text:#e7e9f3; --muted:#8a90a8; --faint:#5b6178;
+    --accent:#6d7cff; --accent-weak:rgba(109,124,255,.16); --accent-line:#6d7cff;
+    --ok:#45c98a; --warn:#e8b45c; --err:#ef6a5a;
+    --k-bigquery:#4d9fff; --k-redshift:#ff9d5c; --k-azure_sql:#a08bff;
+    --k-sharepoint:#3fc9b0; --k-postgres:#ef6a99; --k-csv:#8fd15a;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --r:12px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#eef0f7; --canvas:#e7eaf3; --dot:#ccd2e6;
+      --panel:#ffffff; --panel-2:#f5f6fb; --elev:#ffffff;
+      --border:#dde1ef; --border-soft:#e6e9f4;
+      --text:#191c2a; --muted:#5c6178; --faint:#9096ad;
+      --accent:#5561f0; --accent-weak:rgba(85,97,240,.12); --accent-line:#5561f0;
+      --ok:#1f9d67; --warn:#c9871f; --err:#d6493a;
+      --k-bigquery:#2f7ff0; --k-redshift:#df7a2c; --k-azure_sql:#7a5cf0;
+      --k-sharepoint:#159a84; --k-postgres:#d84a7e; --k-csv:#5aa832;
+      --shadow:0 8px 26px rgba(30,40,90,.14);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f111a; --canvas:#0c0e15; --dot:#20263a;
+    --panel:#161925; --panel-2:#1e2230; --elev:#242a3b;
+    --border:#2a3050; --border-soft:#232840;
+    --text:#e7e9f3; --muted:#8a90a8; --faint:#5b6178;
+    --accent:#6d7cff; --accent-weak:rgba(109,124,255,.16); --accent-line:#6d7cff;
+    --ok:#45c98a; --warn:#e8b45c; --err:#ef6a5a;
+    --k-bigquery:#4d9fff; --k-redshift:#ff9d5c; --k-azure_sql:#a08bff;
+    --k-sharepoint:#3fc9b0; --k-postgres:#ef6a99; --k-csv:#8fd15a;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  :root[data-theme="light"]{
+    --bg:#eef0f7; --canvas:#e7eaf3; --dot:#ccd2e6;
+    --panel:#ffffff; --panel-2:#f5f6fb; --elev:#ffffff;
+    --border:#dde1ef; --border-soft:#e6e9f4;
+    --text:#191c2a; --muted:#5c6178; --faint:#9096ad;
+    --accent:#5561f0; --accent-weak:rgba(85,97,240,.12); --accent-line:#5561f0;
+    --ok:#1f9d67; --warn:#c9871f; --err:#d6493a;
+    --k-bigquery:#2f7ff0; --k-redshift:#df7a2c; --k-azure_sql:#7a5cf0;
+    --k-sharepoint:#159a84; --k-postgres:#d84a7e; --k-csv:#5aa832;
+    --shadow:0 8px 26px rgba(30,40,90,.14);
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+    font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+  button{font-family:inherit;cursor:pointer;color:inherit}
+  input{font-family:inherit}
+  .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faint)}
+  ::selection{background:var(--accent-weak)}
+
+  /* ---------- app shell ---------- */
+  .app{display:grid;grid-template-rows:auto 1fr auto;height:100vh}
+  .topbar{display:flex;align-items:center;gap:14px;padding:10px 16px;
+    background:var(--panel);border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .glyph{width:26px;height:26px;border-radius:7px;flex:none;
+    background:conic-gradient(from 210deg, var(--accent), #9a7cff 55%, var(--k-sharepoint));
+    box-shadow:0 0 0 1px rgba(255,255,255,.06) inset}
+  .brand h1{font-size:14.5px;margin:0;font-weight:640;letter-spacing:-.01em}
+  .brand .sub{color:var(--muted);font-size:12px}
+  .spacer{flex:1}
+  .btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);
+    background:var(--panel-2);padding:7px 12px;border-radius:9px;font-size:12.5px;
+    font-weight:560;transition:border-color .15s,background .15s,transform .05s}
+  .btn:hover{border-color:var(--accent);background:var(--accent-weak)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(1.07)}
+  .btn.icon{padding:7px 9px}
+  .btn svg{width:14px;height:14px;display:block}
+
+  .main{display:grid;grid-template-columns:236px 1fr 336px;min-height:0}
+
+  /* ---------- palette rail ---------- */
+  .rail{background:var(--panel);border-right:1px solid var(--border);
+    padding:16px 14px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+  .rail .eyebrow{margin:2px 2px 8px}
+  .kind{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+    border:1px solid var(--border-soft);background:transparent;border-radius:10px;
+    padding:9px 10px;transition:border-color .15s,background .15s}
+  .kind:hover{border-color:var(--k);background:color-mix(in srgb,var(--k) 8%, transparent)}
+  .kind .mono-chip{width:30px;height:30px;border-radius:8px;flex:none;display:grid;
+    place-items:center;font-family:var(--mono);font-size:10.5px;font-weight:600;
+    color:var(--k);background:color-mix(in srgb,var(--k) 15%, transparent);
+    border:1px solid color-mix(in srgb,var(--k) 40%, transparent)}
+  .kind .kn{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+  .kind .kn b{font-weight:580;font-size:12.5px}
+  .kind .kn span{color:var(--faint);font-size:10.5px;font-family:var(--mono)}
+  .kind .plus{margin-left:auto;color:var(--faint);font-size:16px;line-height:1;
+    transition:color .15s,transform .15s}
+  .kind:hover .plus{color:var(--k);transform:scale(1.15)}
+  .rail-note{margin-top:auto;padding-top:14px;color:var(--faint);font-size:11px;
+    border-top:1px dashed var(--border-soft);line-height:1.5}
+
+  /* ---------- canvas ---------- */
+  .canvas{position:relative;overflow:auto;background:var(--canvas)}
+  .world{position:relative;width:2600px;height:1700px;
+    background-image:radial-gradient(var(--dot) 1.4px, transparent 1.4px);
+    background-size:26px 26px;background-position:13px 13px}
+  svg.edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+
+  .node{position:absolute;width:212px;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--r);box-shadow:var(--shadow);user-select:none;
+    --k:var(--accent);transition:box-shadow .15s,border-color .15s;touch-action:none}
+  .node::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;
+    border-radius:3px;background:var(--k)}
+  .node.sel{border-color:var(--k);box-shadow:0 0 0 1px var(--k),0 10px 34px rgba(0,0,0,.5)}
+  .node .nhead{display:flex;align-items:center;gap:9px;padding:11px 12px 8px 15px;cursor:grab}
+  .node.dragging .nhead{cursor:grabbing}
+  .node .mono-chip{width:28px;height:28px;border-radius:7px;flex:none;display:grid;
+    place-items:center;font-family:var(--mono);font-size:9.5px;font-weight:600;color:var(--k);
+    background:color-mix(in srgb,var(--k) 15%, transparent);
+    border:1px solid color-mix(in srgb,var(--k) 40%, transparent)}
+  .node .nid{font-family:var(--mono);font-size:12.5px;font-weight:560;letter-spacing:-.01em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .node .nkind{color:var(--faint);font-size:10px;font-family:var(--mono);margin-top:1px}
+  .node .status{margin-left:auto;flex:none;width:8px;height:8px;border-radius:50%;
+    background:var(--faint);box-shadow:0 0 0 3px color-mix(in srgb,var(--faint) 22%, transparent)}
+  .node .status.connected{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%, transparent)}
+  .node .status.draft{background:var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 22%, transparent)}
+  .node .nbody{padding:2px 12px 12px 15px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+  .pill{font-family:var(--mono);font-size:10px;padding:2.5px 7px;border-radius:20px;
+    border:1px solid var(--border-soft);color:var(--muted);white-space:nowrap}
+  .pill.bu{color:var(--text);border-color:var(--border);
+    background:var(--panel-2)}
+  .pill.bu::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+    background:var(--bu,var(--accent));margin-right:6px;vertical-align:middle}
+  .pill.cap{color:var(--k);border-color:color-mix(in srgb,var(--k) 35%, transparent);
+    background:color-mix(in srgb,var(--k) 10%, transparent)}
+  .pill.acl{color:var(--muted)}
+  .pill.acl::before{content:"◈ ";color:var(--faint)}
+
+  .hub{position:absolute;width:150px;text-align:center;user-select:none}
+  .hub .core{background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--accent);border-radius:16px;padding:16px 14px;
+    box-shadow:0 0 0 4px var(--accent-weak),var(--shadow)}
+  .hub .ring{width:34px;height:34px;margin:0 auto 8px;border-radius:10px;
+    background:conic-gradient(from 210deg,var(--accent),#9a7cff 55%,var(--k-sharepoint))}
+  .hub b{font-size:12.5px;display:block;letter-spacing:-.01em}
+  .hub span{font-family:var(--mono);font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+
+  /* ---------- config panel ---------- */
+  .panel{background:var(--panel);border-left:1px solid var(--border);
+    overflow:auto;display:flex;flex-direction:column}
+  .panel .ph{display:grid;place-items:center;height:100%;text-align:center;padding:30px;
+    color:var(--muted);gap:12px}
+  .panel .ph .pg{width:44px;height:44px;border-radius:12px;border:1.5px dashed var(--border);
+    display:grid;place-items:center;color:var(--faint);font-size:22px}
+  .pcard{padding:16px 16px 22px}
+  .pcard .phead{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .pcard .phead .mono-chip{width:34px;height:34px;border-radius:9px;flex:none;display:grid;
+    place-items:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--k);
+    background:color-mix(in srgb,var(--k) 15%, transparent);
+    border:1px solid color-mix(in srgb,var(--k) 40%, transparent)}
+  .pcard .phead b{font-size:14px}
+  .pcard .phead .pk{color:var(--faint);font-family:var(--mono);font-size:10.5px}
+  .field{margin-top:14px}
+  .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:560}
+  .field .hint{color:var(--faint);font-weight:400;font-family:var(--mono);font-size:10px}
+  .field input{width:100%;background:var(--panel-2);border:1px solid var(--border);
+    color:var(--text);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:var(--mono)}
+  .field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
+  .field input::placeholder{color:var(--faint)}
+  .secretrow{position:relative}
+  .secretrow .tag{position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--warn);
+    border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:5px;padding:2px 5px;
+    background:var(--panel)}
+  .divider{height:1px;background:var(--border-soft);margin:18px 0}
+  .prow{display:flex;gap:8px;margin-top:16px}
+  .prow .btn{flex:1;justify-content:center}
+  .btn.danger:hover{border-color:var(--err);background:color-mix(in srgb,var(--err) 12%,transparent);color:var(--err)}
+  .probe-line{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11.5px;color:var(--muted)}
+  .probe-line .dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+  .probe-line.ok .dot{background:var(--ok)} .probe-line.ok{color:var(--ok)}
+  .probe-line.busy .dot{background:var(--warn);animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+  /* ---------- status bar ---------- */
+  .statusbar{display:flex;align-items:center;gap:18px;padding:8px 16px;font-size:11.5px;
+    background:var(--panel);border-top:1px solid var(--border);color:var(--muted);
+    font-family:var(--mono)}
+  .statusbar b{color:var(--text);font-weight:600}
+  .statusbar .s-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:6px;display:inline-block}
+  .statusbar .hint{margin-left:auto;color:var(--faint)}
+
+  /* ---------- export drawer ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(4,6,12,.55);backdrop-filter:blur(3px);
+    opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+  .scrim.open{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(560px,94vw);z-index:41;
+    background:var(--panel);border-left:1px solid var(--border);box-shadow:var(--shadow);
+    transform:translateX(100%);transition:transform .24s cubic-bezier(.4,0,.2,1);
+    display:flex;flex-direction:column}
+  .drawer.open{transform:none}
+  .drawer .dhead{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--border)}
+  .drawer .dhead b{font-size:14px}
+  .drawer .dhead .fn{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .yaml{flex:1;overflow:auto;margin:0;padding:18px;font-family:var(--mono);font-size:12.5px;
+    line-height:1.65;background:var(--canvas);white-space:pre}
+  .yaml .k{color:var(--accent)} .yaml .kind{color:var(--k-sharepoint)}
+  .yaml .env{color:var(--warn)} .yaml .str{color:var(--text)}
+  .yaml .dash{color:var(--faint)} .yaml .cmt{color:var(--faint);font-style:italic}
+  .drawer .dfoot{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center}
+  .drawer .dfoot .note{color:var(--faint);font-size:11px}
+
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+  @media (max-width:920px){
+    .main{grid-template-columns:1fr}
+    .rail,.panel{display:none}
+  }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="glyph" aria-hidden="true"></div>
+      <div>
+        <h1>DBSearch · Data Canvas</h1>
+        <div class="sub mono">wire every source into one permission-faithful search</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn icon" id="theme" title="Toggle theme" aria-label="Toggle theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/><circle cx="12" cy="12" r="3.4"/></svg>
+    </button>
+    <button class="btn" id="reset" title="Reset to the demo topology">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M20 10a8 8 0 0 0-14.9-3M4 14a8 8 0 0 0 14.9 3"/></svg>
+      Demo
+    </button>
+    <button class="btn primary" id="export">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M8 11l4 4 4-4M5 21h14"/></svg>
+      Export stores.yml
+    </button>
+  </header>
+
+  <div class="main">
+    <aside class="rail" id="rail">
+      <div class="eyebrow">Add a source</div>
+      <!-- kind buttons injected -->
+      <div class="rail-note">Each node is a database. Click <b>+</b> to drop one onto the
+      canvas, then wire its connection — DBSearch routes each query to the right one.</div>
+    </aside>
+
+    <section class="canvas" id="canvas">
+      <div class="world" id="world">
+        <svg class="edges" id="edges"></svg>
+        <div class="hub" id="hub">
+          <div class="core">
+            <div class="ring" aria-hidden="true"></div>
+            <b>DBSearch Router</b>
+            <span>query → store</span>
+          </div>
+        </div>
+        <!-- nodes injected -->
+      </div>
+    </section>
+
+    <aside class="panel" id="panel"><!-- config injected --></aside>
+  </div>
+
+  <footer class="statusbar" id="statusbar"></footer>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dhead">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+    <b>stores.yml</b>
+    <span class="fn">— generated from this canvas</span>
+    <div class="spacer"></div>
+    <button class="btn icon" id="closeDrawer" aria-label="Close">✕</button>
+  </div>
+  <pre class="yaml" id="yaml"></pre>
+  <div class="dfoot">
+    <button class="btn primary" id="copyYaml">Copy manifest</button>
+    <span class="note">This is exactly what <span class="mono">dbsearch compose up</span> consumes.</span>
+  </div>
+</aside>
+
+<script>
+(function(){
+  "use strict";
+
+  const KINDS = {
+    sharepoint:{label:"SharePoint",  mono:"SP",  cap:"semantic",   fields:[{k:"site_url",ph:"${HR_SP_URL}",secret:false}]},
+    bigquery:  {label:"BigQuery",    mono:"BQ",  cap:"analytical", fields:[{k:"project",ph:"${GBQ_PROJECT}"},{k:"dataset",ph:"sales"},{k:"key",ph:"${GBQ_KEY}",secret:true}]},
+    redshift:  {label:"Redshift",    mono:"RS",  cap:"analytical", fields:[{k:"cluster",ph:"${RS_CLUSTER}"},{k:"database",ph:"analytics"},{k:"key",ph:"${AWS_SECRET}",secret:true}]},
+    azure_sql: {label:"Azure SQL",   mono:"AZ",  cap:"analytical", fields:[{k:"server",ph:"${AZ_SERVER}"},{k:"database",ph:"hr"},{k:"key",ph:"${AZ_KEY}",secret:true}]},
+    postgres:  {label:"Postgres",    mono:"PG",  cap:"exact",      fields:[{k:"host",ph:"${PG_HOST}"},{k:"database",ph:"tickets"},{k:"key",ph:"${PG_PW}",secret:true}]},
+    csv:       {label:"CSV / Files", mono:"CSV", cap:"analytical", fields:[{k:"path",ph:"./data/*.csv",secret:false}]}
+  };
+  const BU_COLORS = {}; // assigned per business unit
+  const BU_PALETTE = ["#6d7cff","#3fc9b0","#ff9d5c","#ef6a99","#8fd15a","#a08bff","#4d9fff"];
+  function buColor(bu){
+    if(!bu) return "var(--faint)";
+    if(!(bu in BU_COLORS)) BU_COLORS[bu]=BU_PALETTE[Object.keys(BU_COLORS).length%BU_PALETTE.length];
+    return BU_COLORS[bu];
+  }
+
+  const HUB = {x:1195, y:770};
+  let state, selected=null, seq=0;
+
+  function demo(){
+    BU_COLORS.hr=BU_PALETTE[1]; BU_COLORS.sales=BU_PALETTE[0]; BU_COLORS.finance=BU_PALETTE[2];
+    return [
+      mk("hr-wiki","sharepoint","hr",["hr-staff"],{site_url:"${HR_SP_URL}"},"connected",900,470),
+      mk("sales-ledger","bigquery","sales",["sales-staff"],{project:"${GBQ_PROJECT}",dataset:"sales",key:"${GBQ_KEY}"},"connected",1470,470),
+      mk("fin-warehouse","redshift","finance",["fin-staff"],{cluster:"${RS_CLUSTER}",database:"analytics",key:"${AWS_SECRET}"},"draft",1470,1030),
+      mk("hr-tickets","postgres","hr",["hr-staff","it-staff"],{host:"${PG_HOST}",database:"tickets",key:"${PG_PW}"},"connected",900,1030)
+    ];
+  }
+  function mk(id,kind,bu,acl,config,status,x,y){
+    seq++; return {uid:"n"+seq,id,kind,bu,acl:acl.slice(),config:Object.assign({},config),status,x,y};
+  }
+
+  /* ---------------- palette ---------------- */
+  function buildRail(){
+    const rail=document.getElementById("rail");
+    const note=rail.querySelector(".rail-note");
+    Object.entries(KINDS).forEach(([kind,def])=>{
+      const b=document.createElement("button");
+      b.className="kind"; b.style.setProperty("--k","var(--k-"+kind+")");
+      b.innerHTML='<span class="mono-chip">'+def.mono+'</span>'+
+        '<span class="kn"><b>'+def.label+'</b><span>'+def.cap+'</span></span>'+
+        '<span class="plus">+</span>';
+      b.onclick=()=>addNode(kind);
+      rail.insertBefore(b,note);
+    });
+  }
+
+  function addNode(kind){
+    const def=KINDS[kind];
+    const n=Object.keys(KINDS).length;
+    const base=(kind[0]+"-source");
+    let id=kind+"-"+(state.filter(s=>s.kind===kind).length+1);
+    const config={}; def.fields.forEach(f=>config[f.k]=f.ph);
+    const ang=(state.length*0.9), rad=250+(state.length%3)*40;
+    const x=HUB.x+Math.cos(ang)*rad*1.5, y=HUB.y+Math.sin(ang)*rad;
+    const node=mk(id,kind,"",[],config,"draft",Math.max(40,x),Math.max(40,y));
+    state.push(node); selected=node.uid; renderAll(); flashCenter(node.uid);
+  }
+
+  /* ---------------- render ---------------- */
+  const world=document.getElementById("world");
+  const edges=document.getElementById("edges");
+
+  function renderAll(){
+    // remove existing nodes (keep svg + hub)
+    world.querySelectorAll(".node").forEach(el=>el.remove());
+    state.forEach(buildNode);
+    positionHub();
+    drawEdges(); renderPanel(); renderStatus();
+    const y=document.getElementById("yaml"); if(document.getElementById("drawer").classList.contains("open")) y.innerHTML=yamlHTML();
+  }
+
+  function positionHub(){
+    const h=document.getElementById("hub");
+    h.style.left=(HUB.x-75)+"px"; h.style.top=(HUB.y-52)+"px";
+  }
+
+  function buildNode(node){
+    const def=KINDS[node.kind];
+    const el=document.createElement("div");
+    el.className="node"+(selected===node.uid?" sel":"");
+    el.style.setProperty("--k","var(--k-"+node.kind+")");
+    el.style.left=node.x+"px"; el.style.top=node.y+"px";
+    el.dataset.uid=node.uid;
+    const acls=node.acl.length?node.acl.map(a=>'<span class="pill acl">'+esc(a)+'</span>').join(""):
+      '<span class="pill" style="color:var(--warn);border-color:color-mix(in srgb,var(--warn) 35%,transparent)">no ACL</span>';
+    const bu=node.bu?'<span class="pill bu" style="--bu:'+buColor(node.bu)+'">'+esc(node.bu)+'</span>':
+      '<span class="pill" style="color:var(--faint)">no unit</span>';
+    el.innerHTML=
+      '<div class="nhead">'+
+        '<span class="mono-chip">'+def.mono+'</span>'+
+        '<div style="min-width:0"><div class="nid">'+esc(node.id)+'</div>'+
+        '<div class="nkind">'+node.kind+'</div></div>'+
+        '<span class="status '+node.status+'" title="'+node.status+'"></span>'+
+      '</div>'+
+      '<div class="nbody">'+bu+
+        '<span class="pill cap">'+def.cap+'</span>'+acls+'</div>';
+    world.appendChild(el);
+    wireDrag(el,node);
+    el.addEventListener("click",e=>{ if(!el._moved){ selected=node.uid; renderAll(); } });
+  }
+
+  function center(el){ return {x:el.offsetLeft+el.offsetWidth/2, y:el.offsetTop+el.offsetHeight/2}; }
+
+  function drawEdges(){
+    const hub=document.getElementById("hub");
+    const hc=center(hub);
+    let s='';
+    state.forEach(node=>{
+      const el=world.querySelector('.node[data-uid="'+node.uid+'"]'); if(!el) return;
+      const c=center(el);
+      const connected=node.status==="connected";
+      const col=connected?"var(--accent-line)":"var(--faint)";
+      const mx=(c.x+hc.x)/2;
+      const d="M "+c.x+" "+c.y+" C "+mx+" "+c.y+", "+mx+" "+hc.y+", "+hc.x+" "+hc.y;
+      s+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="'+(connected?2:1.4)+'" '+
+         (connected?'opacity="0.9"':'stroke-dasharray="5 6" opacity="0.55"')+'/>';
+      s+='<circle cx="'+c.x+'" cy="'+c.y+'" r="3.2" fill="'+col+'"/>';
+    });
+    edges.innerHTML=s;
+  }
+
+  /* ---------------- drag ---------------- */
+  function wireDrag(el,node){
+    const head=el.querySelector(".nhead");
+    head.addEventListener("pointerdown",e=>{
+      if(e.button!==0) return;
+      el._moved=false; el.classList.add("dragging");
+      const sx=e.clientX, sy=e.clientY, ox=node.x, oy=node.y;
+      head.setPointerCapture(e.pointerId);
+      const move=ev=>{
+        const dx=ev.clientX-sx, dy=ev.clientY-sy;
+        if(Math.abs(dx)+Math.abs(dy)>3) el._moved=true;
+        node.x=Math.max(10,ox+dx); node.y=Math.max(10,oy+dy);
+        el.style.left=node.x+"px"; el.style.top=node.y+"px"; drawEdges();
+      };
+      const up=ev=>{
+        head.releasePointerCapture(e.pointerId);
+        head.removeEventListener("pointermove",move);
+        head.removeEventListener("pointerup",up);
+        el.classList.remove("dragging");
+        setTimeout(()=>{el._moved=false;},0);
+      };
+      head.addEventListener("pointermove",move);
+      head.addEventListener("pointerup",up);
+    });
+  }
+
+  /* ---------------- config panel ---------------- */
+  function renderPanel(){
+    const p=document.getElementById("panel");
+    const node=state.find(s=>s.uid===selected);
+    if(!node){
+      p.innerHTML='<div class="ph"><div class="pg">◇</div><div><b>No source selected</b>'+
+        '<div style="color:var(--faint);font-size:12px;margin-top:4px">Add a source from the left,'+
+        ' or click a node to configure its connection, business unit, and permissions.</div></div></div>';
+      return;
+    }
+    const def=KINDS[node.kind];
+    let fields='';
+    def.fields.forEach(f=>{
+      const v=node.config[f.k]!==undefined?node.config[f.k]:"";
+      fields+='<div class="field"><label>'+f.k+' <span class="hint">'+(f.secret?"env secret":"connection")+'</span></label>'+
+        '<div class="secretrow"><input data-cfg="'+f.k+'" value="'+esc(v)+'" placeholder="'+esc(f.ph)+'" spellcheck="false">'+
+        (f.secret?'<span class="tag">ENV</span>':'')+'</div></div>';
+    });
+    const probe = node.status==="connected"
+      ? '<div class="probe-line ok" id="probe"><span class="dot"></span>Connected · schema introspected</div>'
+      : '<div class="probe-line" id="probe"><span class="dot"></span>Not connected yet</div>';
+    p.innerHTML=
+      '<div class="pcard" style="--k:var(--k-'+node.kind+')">'+
+        '<div class="phead"><span class="mono-chip">'+def.mono+'</span>'+
+          '<div><b>'+esc(node.id)+'</b><div class="pk">'+node.kind+' · '+def.cap+'</div></div></div>'+
+        '<div class="field"><label>store id</label><input data-fld="id" value="'+esc(node.id)+'" spellcheck="false"></div>'+
+        '<div class="field"><label>business unit</label><input data-fld="bu" value="'+esc(node.bu)+'" placeholder="hr / sales / finance" spellcheck="false"></div>'+
+        '<div class="field"><label>ACL <span class="hint">who may see this store</span></label>'+
+          '<input data-fld="acl" value="'+esc(node.acl.join(", "))+'" placeholder="hr-staff, exec-only" spellcheck="false"></div>'+
+        '<div class="divider"></div>'+
+        '<div class="eyebrow" style="margin-bottom:2px">Connection · '+def.label+'</div>'+
+        fields+ probe+
+        '<div class="prow">'+
+          '<button class="btn primary" id="testConn">'+(node.status==="connected"?"Re-test":"Test connection")+'</button>'+
+          '<button class="btn danger" id="delNode" style="flex:0 0 auto">Remove</button>'+
+        '</div>'+
+      '</div>';
+
+    p.querySelectorAll("[data-fld]").forEach(inp=>{
+      inp.addEventListener("input",()=>{
+        const f=inp.dataset.fld;
+        if(f==="id") node.id=inp.value.trim()||node.id;
+        else if(f==="bu"){ node.bu=inp.value.trim(); }
+        else if(f==="acl") node.acl=inp.value.split(",").map(s=>s.trim()).filter(Boolean);
+        // live-update node card + edges without stealing focus
+        refreshNodeCard(node); drawEdges(); renderStatus(); syncYaml();
+      });
+    });
+    p.querySelectorAll("[data-cfg]").forEach(inp=>{
+      inp.addEventListener("input",()=>{ node.config[inp.dataset.cfg]=inp.value; syncYaml(); });
+    });
+    p.querySelector("#testConn").onclick=()=>testConn(node);
+    p.querySelector("#delNode").onclick=()=>{ state=state.filter(s=>s.uid!==node.uid); selected=null; renderAll(); };
+  }
+
+  function refreshNodeCard(node){
+    const el=world.querySelector('.node[data-uid="'+node.uid+'"]');
+    if(!el) return;
+    const old=el.style.left, oldt=el.style.top;
+    el.remove(); buildNode(node);
+    const ne=world.querySelector('.node[data-uid="'+node.uid+'"]');
+    if(ne){ ne.style.left=old; ne.style.top=oldt; }
+  }
+
+  function testConn(node){
+    const probe=document.getElementById("probe");
+    if(probe){ probe.className="probe-line busy"; probe.innerHTML='<span class="dot"></span>Probing '+esc(node.kind)+' · introspecting schema…'; }
+    node.status="draft";
+    const el=world.querySelector('.node[data-uid="'+node.uid+'"] .status');
+    if(el) el.className="status draft";
+    drawEdges();
+    setTimeout(()=>{
+      node.status="connected"; renderPanel(); renderAll();
+    }, 780);
+  }
+
+  /* ---------------- status bar ---------------- */
+  function renderStatus(){
+    const bar=document.getElementById("statusbar");
+    const bus=new Set(state.map(s=>s.bu).filter(Boolean));
+    const conn=state.filter(s=>s.status==="connected").length;
+    const noacl=state.filter(s=>s.acl.length===0).length;
+    bar.innerHTML='<span><span class="s-dot"></span>tenant <b>'+esc(state.length?state.tenant||"acme":"acme")+'</b></span>'+
+      '<span><b>'+state.length+'</b> sources</span>'+
+      '<span><b>'+bus.size+'</b> business units</span>'+
+      '<span><b>'+conn+'</b> connected</span>'+
+      (noacl?'<span style="color:var(--warn)">⚠ '+noacl+' without ACL</span>':'<span style="color:var(--ok)">✓ all permissioned</span>')+
+      '<span class="hint">drag to arrange · click a node to configure</span>';
+  }
+
+  /* ---------------- yaml export ---------------- */
+  function manifest(){
+    const stores=state.map(n=>{
+      const cfg=Object.entries(n.config).filter(([k,v])=>v!=="").map(([k,v])=>k+": "+v).join(", ");
+      return {id:n.id,kind:n.kind,bu:n.bu||"unassigned",acl:n.acl,cfg:cfg};
+    });
+    return {tenant:"acme",stores};
+  }
+  function yamlHTML(){
+    const m=manifest();
+    let out='<span class="k">tenant</span>: <span class="str">'+m.tenant+'</span>\n<span class="k">stores</span>:\n';
+    if(!m.stores.length) out+='<span class="cmt">  # add a source on the canvas to populate this manifest</span>\n';
+    m.stores.forEach(s=>{
+      out+='<span class="dash">  -</span> <span class="k">id</span>: <span class="str">'+esc(s.id)+'</span>\n';
+      out+='    <span class="k">kind</span>: <span class="kind">'+esc(s.kind)+'</span>\n';
+      out+='    <span class="k">business_unit</span>: <span class="str">'+esc(s.bu)+'</span>\n';
+      out+='    <span class="k">acl</span>: [<span class="str">'+s.acl.map(esc).join(", ")+'</span>]\n';
+      out+='    <span class="k">config</span>: { '+colorCfg(s.cfg)+' }\n';
+    });
+    return out;
+  }
+  function colorCfg(cfg){
+    return esc(cfg).replace(/(\$\{[^}]+\})/g,'<span class="env">$1</span>')
+                   .replace(/([\w-]+):/g,'<span class="k">$1</span>:');
+  }
+  function yamlText(){
+    const m=manifest();
+    let out="tenant: "+m.tenant+"\nstores:\n";
+    m.stores.forEach(s=>{
+      out+="  - id: "+s.id+"\n    kind: "+s.kind+"\n    business_unit: "+s.bu+
+        "\n    acl: ["+s.acl.join(", ")+"]\n    config: { "+s.cfg+" }\n";
+    });
+    return out;
+  }
+  function syncYaml(){ if(document.getElementById("drawer").classList.contains("open")) document.getElementById("yaml").innerHTML=yamlHTML(); }
+
+  /* ---------------- drawer ---------------- */
+  function openDrawer(){
+    document.getElementById("yaml").innerHTML=yamlHTML();
+    document.getElementById("drawer").classList.add("open");
+    document.getElementById("scrim").classList.add("open");
+  }
+  function closeDrawer(){
+    document.getElementById("drawer").classList.remove("open");
+    document.getElementById("scrim").classList.remove("open");
+  }
+
+  /* ---------------- misc ---------------- */
+  function flashCenter(uid){
+    const el=world.querySelector('.node[data-uid="'+uid+'"]');
+    if(!el) return;
+    const canvas=document.getElementById("canvas");
+    canvas.scrollTo({left:el.offsetLeft-canvas.clientWidth/2+120, top:el.offsetTop-canvas.clientHeight/2+80, behavior:"smooth"});
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+  function currentTheme(){
+    const t=document.documentElement.getAttribute("data-theme");
+    if(t) return t;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
+  }
+
+  /* ---------------- wire up ---------------- */
+  buildRail();
+  state=demo(); state.tenant="acme";
+  renderAll();
+  // center the view on the hub
+  requestAnimationFrame(()=>{
+    const c=document.getElementById("canvas");
+    c.scrollTo({left:HUB.x-c.clientWidth/2, top:HUB.y-c.clientHeight/2});
+  });
+
+  document.getElementById("export").onclick=openDrawer;
+  document.getElementById("closeDrawer").onclick=closeDrawer;
+  document.getElementById("scrim").onclick=closeDrawer;
+  document.getElementById("reset").onclick=()=>{ seq=0; state=demo(); state.tenant="acme"; selected=null; renderAll(); };
+  document.getElementById("theme").onclick=()=>{
+    document.documentElement.setAttribute("data-theme", currentTheme()==="dark"?"light":"dark");
+    renderAll();
+  };
+  document.getElementById("copyYaml").onclick=()=>{
+    const txt=yamlText(), btn=document.getElementById("copyYaml");
+    const done=()=>{ btn.textContent="Copied ✓"; setTimeout(()=>btn.textContent="Copy manifest",1400); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done).catch(done); }
+    else done();
+  };
+  window.addEventListener("keydown",e=>{ if(e.key==="Escape") closeDrawer(); });
+  window.addEventListener("resize",drawEdges);
+})();
+</script>

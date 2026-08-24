@@ -1,0 +1,291 @@
+<!-- src/dbsearch/server/static/signin.html
+     #446: a branded sign-in page, standing between the landing and the IdP.
+
+     #386 gave the product a door but wired it straight to /auth/login, so clicking
+     "Sign in" ejected the visitor onto a Microsoft consent screen reading
+     "dbsearch-sql-login / unverified / This application is not published by Microsoft"
+     with no context at all. That reads as phishing at exactly the moment a stranger is
+     deciding whether to trust us with their database. This page sets the expectation
+     first, which is what makes the consent screen legible.
+
+     It lives in the APP, not in site/ (the Next.js export), for two reasons:
+       1. A self-hoster has no site/out on disk, and sign-in must exist in every
+          deployment. The "/" route already falls back to the app shell for exactly
+          this reason; a marketing-only /signin would 404 for the people most likely
+          to need it.
+       2. The available providers are a RUNTIME fact (/auth/me), not a build-time one.
+          A static export cannot know whether this box has Google configured.
+
+     It imports tokens.css + app.css rather than redeclaring them, i.e. the ONE definition
+     (DESIGN_SYSTEM.md s11.2). The canvas used to be the exception, redeclaring the palette
+     inline because its names collide; #643 kept its values but moved them onto
+     `.canvas-surface` in css/canvas.css, so they are scoped rather than duplicated. -->
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · DBSearch.AI</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/static/css/tokens.css?v=__DBS_BUILD__">
+  <link rel="stylesheet" href="/static/css/app.css?v=__DBS_BUILD__">
+  <style>
+    /* Page-specific only. Anything reusable belongs in app.css. */
+    body{min-height:100vh;display:grid;place-items:center;background:var(--bg);padding:24px}
+    .signin{width:100%;max-width:400px;text-align:center}
+    /* The wordmark is SERIF, matching .brand-name in app.css and the marketing nav - the
+       brand chip is display:none everywhere on purpose (app.css:25), so no mark element
+       here either. No flex gap: it would insert a space between "DBSearch" and ".AI",
+       which renders the wordmark as two words. */
+    .signin .brand-line{display:inline-block;margin-bottom:40px;font-family:var(--serif);
+      font-weight:400;font-size:21px;letter-spacing:-.01em;color:var(--ink)}
+    .signin .brand-line .dot{color:var(--accent)}
+    /* Serif for the one h1, per the type scale. h3 and below stay sans on purpose. */
+    .signin h1{font-family:var(--serif);font-weight:400;
+      font-size:31px;line-height:1.12;letter-spacing:-.02em;margin:0 0 10px;color:var(--ink)}
+    .signin .sub{font-size:14px;line-height:1.6;color:var(--muted);margin:0 0 30px}
+    /* min-height reserves the first button's row, so the copy below does not jump when
+       /auth/me resolves. */
+    .providers{display:flex;flex-direction:column;gap:10px;margin-bottom:26px;min-height:46px}
+    /* Ink is the action (DESIGN_SYSTEM.md s3). Microsoft leads because it is the only
+       provider that can currently deliver query-as-user; Google is the quiet twin. */
+    .idp{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+      min-height:46px;padding:12px 18px;border-radius:var(--r-pill);font-size:14.5px;
+      font-weight:560;cursor:pointer;border:1px solid transparent;
+      font-family:inherit;text-decoration:none;transition:background .15s,border-color .15s}
+    .idp-primary{background:var(--action);color:var(--action-fg)}
+    .idp-primary:hover{background:var(--action-hover)}
+    .idp-quiet{background:var(--surface);color:var(--ink);border-color:var(--border)}
+    .idp-quiet:hover{border-color:var(--border-strong);background:var(--surface-2)}
+    .idp:active{transform:scale(.99)}
+    .ms-mark{width:15px;height:15px;display:inline-grid;grid-template-columns:1fr 1fr;gap:1.5px;flex:none}
+    .ms-mark i{display:block}
+    .ms-mark i:nth-child(1){background:#f25022} .ms-mark i:nth-child(2){background:#7fba00}
+    .ms-mark i:nth-child(3){background:#00a4ef} .ms-mark i:nth-child(4){background:#ffb900}
+    .g-mark{width:15px;height:15px;flex:none}
+    /* #574: the local email/password form, collapsed behind the "Continue with email"
+       quiet button until clicked - it stays visually secondary to the IdP buttons, which
+       is deliberate (a real per-user login is preferred where one is configured). */
+    .local-form{text-align:left;margin-top:10px;padding-top:16px;border-top:1px solid var(--border)}
+    .local-form label{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+      font-weight:560;color:var(--muted);margin:0 0 6px}
+    .local-form label + label{margin-top:14px}
+    .local-form input{width:100%;box-sizing:border-box;background:var(--surface);
+      border:1px solid var(--border);border-radius:var(--r-sm);padding:11px 13px;
+      font-size:14px;font-family:inherit;color:var(--ink)}
+    .local-form input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring)}
+    .local-actions{display:flex;gap:8px;margin-top:16px}
+    .local-actions .idp{width:auto;flex:1}
+    .local-err{margin-top:12px}
+    .note{font-size:12.5px;line-height:1.65;color:var(--muted);
+      border-top:1px solid var(--border);padding-top:18px;margin:0}
+    .note b{color:var(--ink);font-weight:560}
+    .note + .note{border-top:none;padding-top:9px}
+    .back{display:inline-block;margin-top:26px;font-size:13px;color:var(--muted);text-decoration:none}
+    .back:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+    /* Sign-in genuinely unavailable (self-host with no SP_CONNECTOR_* env). Saying so is
+       the honest state; rendering buttons that 503 is not. */
+    .unavailable{border:1px solid var(--border);border-radius:var(--r-md);padding:18px;
+      font-size:13px;line-height:1.6;color:var(--muted);text-align:left}
+    .unavailable code{font-family:var(--mono);font-size:12px;color:var(--ink)}
+    .err{background:var(--red-soft);border:1px solid var(--red);
+      color:var(--red);border-radius:var(--r-sm);padding:11px 14px;font-size:13px;
+      line-height:1.55;text-align:left;margin-bottom:22px}
+    @media (max-width:420px){ .signin h1{font-size:27px} }
+  </style>
+</head>
+<body>
+  <main class="signin">
+    <span class="brand-line">DBSearch<span class="dot">.AI</span></span>
+    <!-- Everything that does NOT depend on /auth/me is server-rendered, so the page is
+         readable on first paint. The first cut put the whole body behind the fetch, and on
+         prod that showed a blank page under a lone wordmark until the round trip finished -
+         caught in a real browser, which is exactly what DESIGN_SYSTEM.md s10 asks for.
+         Only the provider buttons wait, because only they are a runtime fact. -->
+    <div id="signin-body">
+      <div id="err-slot"></div>
+      <h1>Sign in to your workspace</h1>
+      <p class="sub">Connect your own databases and documents, and get answers
+         trimmed to what you are already allowed to see.</p>
+      <!-- Space reserved for one button so the copy below does not jump on arrival. -->
+      <div class="providers" id="providers"></div>
+      <div id="local-slot"></div>
+      <!-- #574: this copy is provider-dependent now. Signing in with Microsoft is a
+           redirect and asks for nothing; signing in with email is a form on this page.
+           A single sentence covering both used to sit under the email form telling the
+           reader they would be redirected and that there was nothing to fill in, which
+           was visibly false at the moment they read it. The provider note is therefore
+           rendered by renderProviders() from what /auth/me reports. -->
+      <p class="note" id="provider-note"></p>
+      <a class="back" href="/canvas">Or try the demo without signing in &rarr;</a>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    var body = document.getElementById("signin-body");
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    // #430's lesson, applied up front: a sign-in failure the user never sees costs hours.
+    // AADSTS codes are kept because they are what a Microsoft admin needs to act, but the
+    // actionable sentence leads.
+    function errorBanner() {
+      var q = new URLSearchParams(location.search);
+      if (q.get("login") !== "error") return "";
+      var msg = q.get("msg") || "";
+      return '<div class="err" role="alert"><b>That sign-in did not complete.</b>' +
+             (msg ? "<br>" + esc(msg) : "") + "</div>";
+    }
+
+    var GOOGLE_MARK =
+      '<svg class="g-mark" viewBox="0 0 48 48" aria-hidden="true">' +
+      '<path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/>' +
+      '<path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 7l7.6 5.9c4.4-4.1 6.7-10.1 6.7-17.4z"/>' +
+      '<path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.8l7.8-6.1z"/>' +
+      '<path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.8 2.3-8.3 2.3-6.3 0-11.7-3.7-13.6-9.9l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/>' +
+      "</svg>";
+
+    // Only the buttons depend on /auth/me; the surrounding copy is already on the page.
+    function renderProviders(a) {
+      var html = "";
+      if (a.enabled) {
+        html +=
+          '<a class="idp idp-primary" href="/auth/login">' +
+          '<span class="ms-mark"><i></i><i></i><i></i><i></i></span>' +
+          "Continue with Microsoft</a>";
+      }
+      if (a.google_enabled) {
+        html +=
+          '<a class="idp idp-quiet" href="/auth/google/login">' +
+          GOOGLE_MARK + "Continue with Google</a>";
+      }
+      if (a.local_enabled) {
+        html += '<button type="button" class="idp idp-quiet" id="localToggle">' +
+                "Continue with email</button>";
+      }
+      document.getElementById("providers").innerHTML = html;
+      document.getElementById("err-slot").innerHTML = errorBanner();
+      document.getElementById("provider-note").innerHTML = providerNote(a);
+      if (a.local_enabled) { renderLocalForm(); }
+    }
+
+    // #574: say what THIS deployment's sign-in actually does. The redirect sentence is
+    // true only of Microsoft/Google; the email form is filled in right here.
+    function providerNote(a) {
+      // Name only the providers this box actually offers - a note that mentions Google
+      // on a deployment with GOOGLE_CLIENT_ID unset is the same class of untruth this
+      // function exists to remove.
+      var redirecting = [];
+      if (a.enabled) { redirecting.push("Microsoft"); }
+      if (a.google_enabled) { redirecting.push("Google"); }
+      var parts = [];
+      if (redirecting.length) {
+        parts.push(redirecting.join(" and ") + " sign-in redirects you to that provider, " +
+                   "and we ask only for your <b>basic profile</b>.");
+      }
+      if (a.local_enabled) {
+        parts.push("Signing in with email keeps you on this page.");
+      }
+      parts.push("Access to a database or document library is requested separately, " +
+                 "when you connect it.");
+      parts.push("New here? An account is created the first time you sign in.");
+      return parts.join(" ");
+    }
+
+    // #574: local email/password sign-in, gated on local_enabled from /auth/me - this
+    // deployment may have DBSEARCH_LOCAL_AUTH unset, in which case none of this markup
+    // (or the fetch calls it wires up) ever reaches the page.
+    function renderLocalForm() {
+      document.getElementById("local-slot").innerHTML =
+        '<div class="local-form" id="localForm" hidden>' +
+        '<div id="local-err" class="local-err"></div>' +
+        '<label for="localEmail">Email</label>' +
+        '<input id="localEmail" type="email" autocomplete="email" placeholder="you@company.com">' +
+        '<label for="localPassword">Password</label>' +
+        '<input id="localPassword" type="password" autocomplete="current-password" ' +
+        'placeholder="At least 8 characters">' +
+        '<div class="local-actions">' +
+        '<button type="button" class="idp idp-primary" id="localSignIn">Sign in</button>' +
+        '<button type="button" class="idp idp-quiet" id="localCreate">Create account</button>' +
+        "</div></div>";
+
+      var toggle = document.getElementById("localToggle");
+      var form = document.getElementById("localForm");
+      toggle.onclick = function () {
+        form.removeAttribute("hidden");
+        toggle.style.display = "none";
+        document.getElementById("localEmail").focus();
+      };
+
+      function submitLocal(path) {
+        var errSlot = document.getElementById("local-err");
+        errSlot.innerHTML = "";
+        var email = document.getElementById("localEmail").value;
+        var password = document.getElementById("localPassword").value;
+        fetch(path, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, password: password })
+        }).then(function (r) {
+          if (r.ok) { location.href = "/canvas?login=ok"; return; }
+          return r.json().then(function (d) {
+            errSlot.innerHTML = '<div class="err" role="alert">' +
+              esc(d.detail || "That did not work. Try again.") + "</div>";
+          });
+        }).catch(function () {
+          errSlot.innerHTML =
+            '<div class="err" role="alert">Could not reach the server. Try again.</div>';
+        });
+      }
+
+      document.getElementById("localSignIn").onclick = function () {
+        submitLocal("/auth/local/login");
+      };
+      document.getElementById("localCreate").onclick = function () {
+        submitLocal("/auth/local/signup");
+      };
+      document.getElementById("localPassword").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { submitLocal("/auth/local/login"); }
+      });
+    }
+
+    // Honesty rules (DESIGN_SYSTEM.md s8): a deployment with no IdP says so, rather than
+    // rendering buttons that 503. Replaces the whole body, since none of the standing copy
+    // is true in this state.
+    function renderUnavailable() {
+      body.innerHTML =
+        "<h1>Sign-in is not configured</h1>" +
+        '<p class="sub">This deployment has no identity provider set up, so there is ' +
+        "nothing to sign in to yet.</p>" +
+        '<div class="unavailable">If you run this box, set the Entra app variables ' +
+        "(<code>AUTH_CLIENT_ID</code>, <code>AUTH_CLIENT_SECRET</code>, " +
+        "<code>AUTH_TENANT_ID</code>), or set <code>DBSEARCH_LOCAL_AUTH=1</code> for " +
+        "email/password sign-in, and restart. Until then the demo below works " +
+        "with no account.</div>" +
+        '<a class="back" href="/canvas">Try the demo &rarr;</a>';
+    }
+
+    fetch("/auth/me", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (a) {
+        // Already signed in: never show a sign-in page to someone who is signed in.
+        // Straight to the product, and replace() so Back does not bounce them here.
+        if (a.signed_in) { location.replace("/canvas"); return; }
+        if (a.enabled || a.google_enabled || a.local_enabled) { renderProviders(a); }
+        else { renderUnavailable(); }
+      })
+      .catch(function () {
+        // /auth/me unreachable. Offering the Microsoft path is still better than a dead
+        // page: if it is genuinely off, /auth/login answers 503 with a real reason.
+        renderProviders({ enabled: true, google_enabled: false });
+      });
+  })();
+  </script>
+</body>
+</html>

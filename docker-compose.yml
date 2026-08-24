@@ -1,0 +1,165 @@
+# DBSearch.AI — self-host edition. ONE command to a working, permission-faithful
+# enterprise-search API on YOUR machine: pgvector + a local LLaMA (Ollama) + the API.
+# Models are pulled automatically on first `up` (see the ollama-init service).
+# Nothing leaves your box. See docs/SELFHOST.md.
+#
+#   docker compose up -d --build          # base (production-shaped; pulls llama3.2)
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build  # instant seeded demo
+#   curl localhost:8080/health
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: dbsearch
+      POSTGRES_DB: dbsearch
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dbsearch"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  # One-shot: wait for the ollama server, pull the models, then exit. api waits on this
+  # completing, so a fresh `docker compose up` needs no separate ollama_pull.sh step.
+  ollama-init:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_started
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        until ollama list >/dev/null 2>&1; do echo "waiting for ollama..."; sleep 2; done;
+        ollama pull "$$OLLAMA_EMBED_MODEL" &&
+        ollama pull "$$OLLAMA_CHAT_MODEL" &&
+        echo "models-ready"
+    restart: "no"
+
+  api:
+    build: .
+    environment:
+      SELFHOST_BACKEND: pgvector-ollama
+      PGVECTOR_DSN: postgresql://postgres:dbsearch@db:5432/dbsearch
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+      OLLAMA_CHAT_MODEL: llama3.2
+      DBSEARCH_EMBEDDING_DIM: "768"        # nomic-embed-text dimension
+      OBJECT_STORE_DIR: /data/objects
+      USERS_FILE: /data/users.json          # optional: mount your own user->groups map
+      # DBSEARCH_SECRET_FILE default (app.py) is /var/lib/dbsearch/secrets.json - the
+      # `secrets:` volume below is mounted there, so a rebuild doesn't need to repeat it here.
+      #
+      # #576: retention sweep. DELIBERATELY "0" (disabled) on the merge deploy - the sweep
+      # is an IRREVERSIBLE whole-workspace delete, and a feature must not arm itself on the
+      # deploy that introduces it. Turn it on as a separate, explicit step, AFTER running
+      # the dry-run preview described below and reading its report. "3" is the code default
+      # (dbsearch/server/retention.py) that this line overrides; <= 0 disables it entirely,
+      # before any enumeration happens at all.
+      DBSEARCH_RETENTION_DAYS: "0"
+      # #315: HOW THIS DEPLOYMENT IDENTIFIES PEOPLE. Read this before your first `up`.
+      #
+      # This base file is the REAL deployment. It deliberately does NOT set
+      # DBSEARCH_DEV_AUTH: that variable makes the app trust an `X-DBSearch-User` request
+      # header, i.e. any caller who can reach the port may act as any user. It used to
+      # default ON, so this very file produced an identity-spoofable box; it is now opt-in
+      # and off, and only docker-compose.demo.yml (the seeded laptop demo) turns it on.
+      #
+      # So this box needs a real login, and local email/password is the one that needs no
+      # cloud app registration. It is armed here, but it will NOT switch itself on until you
+      # also supply a signing key below - local_auth.is_enabled() refuses to run rather than
+      # mint sessions signed with a public dev literal (#574). That is intentional: a
+      # deployment that believes it has login must not silently get a forgeable one.
+      DBSEARCH_LOCAL_AUTH: "1"
+      #
+      # REQUIRED, once, before your first sign-in - a long random value, e.g.
+      #   python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+      # Set it and never change it: rotating it invalidates every live session cookie.
+      # Leave it UNSET only if this box already has AUTH_CLIENT_SECRET (Entra) or
+      # GOOGLE_CLIENT_SECRET, from which the signing key is derived instead. It is a
+      # credential, so it does not live in this file - pass it via the shell or an env_file.
+      # DBSEARCH_SESSION_KEY: "<set me>"
+      #
+      # Until one of those is present the server BOOTS and serves /health, but every
+      # authenticated request is refused with a 401 that names this exact fix, and the
+      # startup log carries the same message at ERROR. Prefer Entra or Google instead? Set
+      # their client id/secret and drop DBSEARCH_LOCAL_AUTH - any one real login is enough.
+      # REQUIRED DEPLOY STEP (not wired up by this change - deploy is a separate explicit
+      # step per house rules), in this order:
+      #
+      #   1. Preview first, on a box with real customer data. Operator-only, read-only:
+      #        curl -XPOST -H "Authorization: Bearer <operator dbk_ key>" \
+      #             'http://127.0.0.1:8000/admin/retention/sweep?dry_run=true'
+      #      An irreversible delete-everything button with no preview is not a luxury.
+      #   2. Set DBSEARCH_RETENTION_DAYS above to "3" and redeploy.
+      #   3. Set DBSEARCH_SWEEP_KEY (below) to an operator api key.
+      #   4. Add a daily cron line on the HOST running this compose file:
+      #
+      #        docker exec dbsearch-api-1 python3 -m dbsearch.server.retention
+      #
+      # That entrypoint POSTs /admin/retention/sweep INSIDE the running api process (final
+      # review Fix 4) rather than sweeping in its own one-shot process. It has to: a fresh
+      # process gets a fresh in-memory ConversationService, so the old version deleted the
+      # documents but left the chat history - answer text quoted from those very documents -
+      # alive in the serving process indefinitely. LAW 4 is unaffected: the endpoint hands
+      # the real sweep to a detached daemon thread and returns 202.
+      #
+      # DBSEARCH_SWEEP_KEY: an OPERATOR api key (dbk_..., from POST /developer/keys signed in
+      # as an oid in DBSEARCH_OPERATOR_OIDS). Required by the cron entrypoint; without it it
+      # deletes nothing and prints {"error": "no_operator_key"}. Not set here - it is a
+      # credential, and this file is in git.
+      # DBSEARCH_SWEEP_URL: defaults to http://127.0.0.1:8000/admin/retention/sweep. Only set
+      # it if the api service does not listen on that address inside the container.
+      #
+      # DBSEARCH_SESSION_KEY: the HMAC key that signs session cookies (#574). Leave it UNSET
+      # on any box that already has AUTH_CLIENT_SECRET - the signing key is derived from that
+      # secret there, and setting this rotates the key, which INSTANTLY invalidates every
+      # live session cookie and signs every user out. It exists for a deployment that offers
+      # ONLY local email/password login (no Entra app registration, so no AUTH_CLIENT_SECRET
+      # to derive from), where without it sessions would be signed with a dev default. Set it
+      # once, before the first sign-in, to a long random value, and never change it after.
+      #
+      # DBSEARCH_COOKIE_SECURE: "1"/"0" to force the session cookie's Secure flag. Unset
+      # (the default) derives it from AUTH_REDIRECT_URI / GOOGLE_REDIRECT_URI being https,
+      # which is right for both a TLS box and a plain-http local rig. Set it to "1" on a box
+      # whose TLS is terminated upstream while its configured redirect URI still says http.
+    volumes:
+      - objects:/data
+      # C3 (#319 review): the app's writable layer is destroyed on every `docker compose
+      # build api && up -d api` (the documented deploy). Without a durable mount here,
+      # EVERY stored credential is silently destroyed on every deploy - describe_secret then
+      # returns None and the UI just says "not set", with no error anywhere. This named
+      # volume makes /var/lib/dbsearch (DBSEARCH_SECRET_FILE's default parent dir) survive a
+      # rebuild.
+      #
+      # REQUIRED DEPLOY STEP: docker-compose.prod.yml lives only on the box (not in this
+      # repo) and is NOT touched by this change. Whoever maintains that overlay must add the
+      # SAME volume mount (`dbsearch_secrets:/var/lib/dbsearch`, declared as a named or
+      # bind-mounted volume) to its `api` service definition, or the prod box keeps losing
+      # every stored credential on deploy exactly as before.
+      - dbsearch_secrets:/var/lib/dbsearch
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  ollama:
+  dbsearch_secrets:
+  objects:
