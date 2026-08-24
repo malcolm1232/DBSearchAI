@@ -2638,6 +2638,24 @@ MUTATIONS = [
              "node's id (gdrive-2 twice on one canvas), welding two nodes to one server store - "
              "and #947's destructive delete then purges the other node's data. The id-recycling "
              "half of the owner's vanished-nodes incident."),
+    # #550: the admin directory + source registry are scoped to the home tenant. Two clauses
+    # (principals gate, sources gate) - one mutation each.
+    dict(id="550-principals-not-scoped", card="#550", path="src/dbsearch/server/app.py",
+         guard="tests/selftest_550_admin_metadata_tenant_scope.py",
+         old="    if not _caller_owns_home_directory(request):\n        return {\"available\": False, \"principals\": [],\n                \"reason\": \"sign in with your organization account to resolve names here, \"\n                          \"or paste an oid \u2014 a personal account shares only with itself\"}\n",
+         new="",
+         expect="caught",
+         why="The #550 leak restored: with the tenant gate gone, a solo account (a Google/email "
+             "signup, acct:<oid>) or a foreign tenant enumerates the HOME org's directory - group "
+             "and people NAMES incl. 'Global Administrator'. Metadata, not content, but the leak "
+             "that most undercuts a permission-faithful product."),
+    dict(id="550-sources-not-scoped", card="#550", path="src/dbsearch/server/app.py",
+         guard="tests/selftest_550_admin_metadata_tenant_scope.py",
+         old="    if not _caller_owns_home_directory(request):\n        return []\n    return [asdict(s) for s in _edition.admin_service.sources()]",
+         new="    return [asdict(s) for s in _edition.admin_service.sources()]",
+         expect="caught",
+         why="A solo/foreign caller reads the deployment's source names + doc counts + tenant "
+             "metadata - the sibling half of the same disclosure."),
     # #924: a SharePoint "Anyone with the link" folder with NO Microsoft identity. Thirteen
     # clauses, one mutation each (the #788 lesson: a fixture rescued by two clauses at once
     # proves neither). Every one is the shape the connector would have had if a rule from the

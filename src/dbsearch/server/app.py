@@ -797,6 +797,23 @@ def _request_tenant(request: Request) -> str:
     return resolve_tenant(request.headers.get, request.cookies.get, _edition.tenant_id)
 
 
+def _caller_owns_home_directory(request: Request) -> bool:
+    """#550: may THIS caller see the deployment's directory + source registry?
+
+    Only a caller whose partition IS the deployment's home tenant. The directory
+    (`identity.list_directory`) enumerates the deployment's OWN Graph tenant, and the source
+    registry holds that tenant's connected sources, so both are meaningless - and a disclosure -
+    to anyone else. A SOLO account (a Google/email signup, partition `acct:<oid>`, e.g. the
+    owner's own 123@gmail.com) and a FOREIGN Entra tenant each see NEITHER, which is also the
+    honest answer: this deployment cannot enumerate their directory. The ACL picker's "Only you
+    / paste an oid" fallback covers the solo case, so nothing an ordinary user does breaks.
+
+    A dev rig is unaffected: dev-auth flattens every caller to the deployment constant, so this
+    is True for everyone there, exactly as `is_operator` is (ADR 0011 s3)."""
+    partition = _request_tenant(request)
+    return bool(partition) and partition == _edition.tenant_id
+
+
 def _is_foreign_partition(partition: str) -> bool:
     """A partition belonging to an Entra tenant that is NOT this deployment's home
     (#582 / ADR 0019 D1). `acct:` partitions and the deployment constant are local; "" is
@@ -1611,16 +1628,20 @@ def my_questions(limit: int = 25, user: str = Depends(current_user)) -> list[dic
 
 
 @app.get("/admin/sources")
-def admin_sources(user: str = Depends(current_user)) -> list[dict]:
-    # NOT operator-gated, deliberately (#549 -> #550): the canvas calls this to restore a
-    # signed-in user's OWN ingested SharePoint state across a reload (syncSharePointNodes),
-    # so gating it costs an ordinary user their own source. It still reports every source on
-    # the deployment, which wants per-owner scoping rather than a role gate — that is #550.
+def admin_sources(request: Request, user: str = Depends(current_user)) -> list[dict]:
+    # NOT operator-gated, deliberately (#549): the canvas calls this to restore a signed-in
+    # user's own ingested SharePoint state across a reload (syncSharePointNodes). #550: but the
+    # registry holds the HOME tenant's sources, so a solo account or a foreign tenant would read
+    # the deployment's source names + counts + tenant metadata. Scope it to the home tenant; a
+    # non-home caller owns nothing here (their own connector stores live in the per-oid router
+    # workspace, not this registry), so an empty list is correct AND non-leaking.
+    if not _caller_owns_home_directory(request):
+        return []
     return [asdict(s) for s in _edition.admin_service.sources()]
 
 
 @app.get("/admin/principals")
-def admin_principals(user: str = Depends(current_user)) -> dict:
+def admin_principals(request: Request, user: str = Depends(current_user)) -> dict:
     """Named principals for the ACL picker (#258).
 
     NOT operator-gated, deliberately (#549 -> #550): this backs the canvas ACL picker, and an
@@ -1636,6 +1657,14 @@ def admin_principals(user: str = Depends(current_user)) -> dict:
     say "directory unavailable — paste an oid" instead of rendering an empty dropdown that
     reads as "this tenant has no groups". Distinguishing those two is the whole point;
     conflating them is the #255 failure mode in a new place."""
+    # #550: the directory is the HOME tenant's. A solo account (acct:<oid>) or a foreign tenant
+    # must not enumerate it - not a role gate (that broke the picker, #549), a TENANT scope. The
+    # unavailable shape below is the SAME one a no-directory backend returns, so the ACL picker
+    # keeps its "Only you / paste an oid" fallback for a solo user rather than breaking.
+    if not _caller_owns_home_directory(request):
+        return {"available": False, "principals": [],
+                "reason": "sign in with your organization account to resolve names here, "
+                          "or paste an oid — a personal account shares only with itself"}
     try:
         entries = _edition.identity.list_directory()
     except NotImplementedError as exc:
