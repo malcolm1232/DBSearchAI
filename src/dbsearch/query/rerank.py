@@ -65,6 +65,24 @@ def shared_content_count(query: str, text: str) -> int:
     return len(_content_terms(query) & set(_terms(text)))
 
 
+def _position(hit) -> "tuple[str, int] | None":
+    """(document, ordinal) for a chunk, or None when it is unpositioned.
+
+    `chunk_id` is "{doc_external_id}#{n}" with n sequential per document
+    (pipeline/runner.py:_stage_chunk_embed), so adjacency needs no extra index round trip -
+    the id a hit already carries says where in its document it sits. Callers whose hits have
+    no chunk_id (a hand-built test hit, an adapter that does not supply one) get None and are
+    simply never treated as anyone's neighbour."""
+    cid = getattr(hit, "chunk_id", "") or ""
+    doc, sep, ordinal = cid.rpartition("#")
+    if not sep:
+        return None
+    try:
+        return (getattr(hit, "doc_external_id", doc), int(ordinal))
+    except ValueError:
+        return None
+
+
 def relevance_floor(query: str, hits: list, *, rel_lexical: float = 0.5, rel_score: float = 0.0,
                     enabled: bool = True):
     """Drop FILLER chunks that a fixed top-k would otherwise force into the citation list.
@@ -83,10 +101,15 @@ def relevance_floor(query: str, hits: list, *, rel_lexical: float = 0.5, rel_sco
         ~0.85x best); a real semantic embedder can enable it (e.g. 0.9) to recover pure-semantic
         matches that share no keywords.
 
+    A kept chunk also brings its immediate NEIGHBOURS in the same document (#936), because
+    the relative bar above is blind to document structure: a heading matches a question's
+    words, raises `best_shared`, and evicts the body underneath that actually answers it.
+
     Strictly SUBTRACTIVE: like the permission trim it can only REMOVE chunks, never add or
-    reorder authorization (LAW 2 untouched). Returning [] is correct for a truly unanswerable
-    question — the caller then abstains instead of citing irrelevant filler. `enabled=False`
-    turns the floor off (a reversible config knob, not a rewrite)."""
+    reorder authorization (LAW 2 untouched) - the neighbour rule re-admits only chunks already
+    in this pool, which the trim has already authorized. Returning [] is correct for a truly
+    unanswerable question — the caller then abstains instead of citing irrelevant filler.
+    `enabled=False` turns the floor off (a reversible config knob, not a rewrite)."""
     if not hits or not enabled:
         return list(hits)
     qterms = _content_terms(query)
@@ -96,8 +119,22 @@ def relevance_floor(query: str, hits: list, *, rel_lexical: float = 0.5, rel_sco
     lex_need = max(1, math.ceil(rel_lexical * best_shared))
     best_score = max((h.score for h in hits), default=0.0)
     score_cut = rel_score * best_score if rel_score > 0 else None
-    return [h for h, sh in zip(hits, shared)
-            if sh >= lex_need or (score_cut is not None and h.score >= score_cut)]
+    keep = [sh >= lex_need or (score_cut is not None and h.score >= score_cut)
+            for h, sh in zip(hits, shared)]
+    # #936: a kept chunk brings its immediate neighbours with it. The bar above is RELATIVE to
+    # the best hit, and a heading is exactly the shape that matches a question's words while
+    # answering nothing - so it sets `best_shared` high and evicts the body underneath it,
+    # which is the half that answers. Both prod sightings were that: heading kept / body
+    # dropped, and continuation kept / antecedent dropped. One hop only, and only out of chunks
+    # ALREADY in this authorized pool, so this stays strictly subtractive against the trim
+    # (LAW 2) and cannot re-admit a whole document. It cannot resurrect #690's off-topic filler
+    # either: a document with no kept chunk has nothing to be adjacent to.
+    adjacent = {(doc, n + step)
+                for pos in (_position(h) for h, k in zip(hits, keep) if k) if pos
+                for doc, n in (pos,) for step in (-1, 1)}
+    if adjacent:
+        keep = [k or (_position(h) in adjacent) for h, k in zip(hits, keep)]
+    return [h for h, k in zip(hits, keep) if k]
 
 
 def _ranks(order: list[int]) -> dict[int, int]:

@@ -32,6 +32,10 @@ class RetrievedChunk:
     score: float
     locator: dict = field(default_factory=dict)
     owner_oid: "str | None" = None   # ADR 0012 attribution, carried through for #576
+    #: "{doc_external_id}#{n}", n sequential per document (pipeline/runner.py). #936: the
+    #: relevance floor needs it to tell a document's CONTINUATION from an unrelated chunk.
+    #: Empty when the index did not supply one - the floor then treats it as unpositioned.
+    chunk_id: str = ""
 
 
 #: The model's own citation convention, with its line range. `answerNodes` in the browser
@@ -349,6 +353,7 @@ class QueryService:
                 score=h.get("score", 0.0),
                 locator=h.get("locator", {}),
                 owner_oid=h.get("owner_oid"),
+                chunk_id=h.get("chunk_id", ""),
             ))
         if self._rerank:                                          # (4b) hybrid rerank, post-trim
             from dbsearch.query.rerank import hybrid_rerank
