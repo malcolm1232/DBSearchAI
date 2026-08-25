@@ -217,12 +217,15 @@ interchangeable on cost:
   for scripted / repeatable measurement.** `browser_evaluate` returns JSON and `browser_snapshot`
   returns a text tree; take a screenshot only for a genuine pixel judgment. Most verification work
   (computed styles, a `fetch` recorder, DOM reads, scroll geometry) is measurement, so it belongs
-  here. **What it can and cannot reach:** a LOCAL rig under real-login semantics is available today
-  — `DBSEARCH_LOCAL_AUTH=1` with `DBSEARCH_SESSION_KEY` enables `/auth/signup` and `/auth/login`,
-  which mint a **real session cookie**, so `real_login_enabled()` is true and `resolve_tenant` takes
-  the verified-session branch. That is step 1, and it is plenty for measurement. It can **never** be
-  step 3: prod is Entra, and there is no minted-cookie path for it (the `/pw` skill mints one for
-  QuantifyMe only). Building that path is what would let Playwright do the prod pass too — #797.
+  here. **What it can reach:** a LOCAL rig under real-login semantics - `DBSEARCH_LOCAL_AUTH=1`
+  with `DBSEARCH_SESSION_KEY` enables `/auth/signup` and `/auth/login`, which mint a **real
+  session cookie**, so `real_login_enabled()` is true and `resolve_tenant` takes the
+  verified-session branch. That is step 1. It can ALSO reach step 3 since **#797 (shipped
+  2026-08-18)**: `scripts/pw_dbs_auth.py` mints a real prod session cookie inside the api
+  container (`scripts/mint_session.py`, signing with prod's own key, which never leaves the box)
+  and injects it, so Playwright can drive the live site as a named identity. Until 2026-08-18
+  this paragraph said the opposite; a sentence describing a limitation that no longer exists is
+  the exact failure this section's meta-rule names.
 - **Claude in Chrome** — use when you need (a) the **already-authenticated real session** (as today,
   signed in as the real Entra user — until the Playwright auth path exists this is the only way to
   drive `/canvas` as a real identity), or (b) genuine **pixel/visual judgment**. Its `computer`
