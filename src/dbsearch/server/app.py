@@ -48,8 +48,8 @@ from dbsearch.api.auth import (
 from dbsearch.api.graphql_app import build_router, build_schema
 from dbsearch.core.validation import is_safe_external_id
 from dbsearch.ports.base import ReadScope, as_read_scope
-from dbsearch.server import (billing, entitlements, google_auth, local_auth,
-                             rate_limit, sp_connect, user_auth)
+from dbsearch.server import (billing, demo_requests, entitlements, google_auth,
+                             local_auth, rate_limit, sp_connect, user_auth)
 from dbsearch.server import tiers as tiers_mod
 from dbsearch.server import edition as edition_mod
 from dbsearch.server.edition import build_edition
@@ -158,6 +158,13 @@ ACCOUNTS = PgAccountStore(_account_dsn) if _account_dsn else InMemoryAccountStor
 # fallback goes down with the process it was protecting. Unset DSN -> None -> each provider
 # keeps its own in-memory store, i.e. today's behaviour.
 _job_store = PgJobStore(_manifest_dsn) if _manifest_dsn else None
+
+# #962: "Book a demo" leads, in the same Postgres for the same reason - no new
+# infrastructure. Unset DSN -> in-memory, which is honest for a self-hoster and for tests
+# but does NOT survive a restart; that is why /admin/demo-requests says so out loud rather
+# than rendering an empty list that looks like "no one has asked".
+DEMO_REQUESTS = (demo_requests.PgDemoRequestStore(_manifest_dsn) if _manifest_dsn
+                 else demo_requests.InMemoryDemoRequestStore())
 
 # #431: per-owner, durable SharePoint connection state, in the same Postgres for the same reason.
 # Unset DSN -> None -> this process only, i.e. today's behaviour minus the cross-user leak (the
@@ -748,6 +755,52 @@ def icon_192() -> Response:
 @app.get("/icon-512.png")
 def icon_512() -> Response:
     return _icon("icon-512.png")
+
+
+# ── Book a demo (#962) ──────────────────────────────────────────────────────
+# The form used to POST to a third-party endpoint read from NEXT_PUBLIC_FORM_ENDPOINT.
+# That variable was set on no build, so the placeholder constant shipped and every lead
+# this site has ever taken 404'd into nothing - see demo_requests.py for the full note.
+#
+# Unauthenticated by construction: a prospect has no account, and requiring one to ask for
+# a demo is a contradiction. What bounds it is that it is WRITE-ONLY and gives a stranger
+# nothing back but `{"received": true}` - no read, no lookup, no field of any other
+# submission, and the same answer whether or not the honeypot tripped.
+#
+# STORAGE FIRST, THEN MAIL, and the order is the whole point (demo_requests.py). The lead
+# is durable before any attempt to send, and a mail failure never reaches the visitor:
+# turning a captured lead into "something went wrong" is what made people submit twice
+# into the same void.
+@app.post("/demo-request", status_code=202)
+def demo_request(body: dict, request: Request) -> dict:
+    ip = rate_limit.client_ip(request)
+    # A public write needs its own budget. 5/minute is far above any human filling in a
+    # form and far below anything worth doing with a script.
+    if not _local_rate_ok("demo", ip):
+        raise HTTPException(status_code=429, detail="too many requests - wait a minute")
+
+    # Answered exactly like a real submission. An error here would tell a scraper which
+    # field to leave alone next time.
+    if demo_requests.is_bot(body):
+        logging.getLogger("dbsearch").info("demo request honeypot tripped; not recorded")
+        return {"received": True}
+
+    try:
+        fields = demo_requests.clean(body)
+    except demo_requests.DemoRequestRejected as exc:
+        # The FIELD name, never the value - the value is a named person's work email.
+        raise HTTPException(status_code=400, detail=f"invalid {exc}")
+
+    try:
+        DEMO_REQUESTS.record(fields, source_ip=ip)
+    except Exception:
+        # The one failure the visitor must hear about: nothing was kept, so "we'll be in
+        # touch" would be a lie. Logged with the payload NOT included.
+        logging.getLogger("dbsearch").exception("demo request could not be stored")
+        raise HTTPException(status_code=503, detail="could not record this request")
+
+    demo_requests.notify(fields)   # best-effort by contract; never raises
+    return {"received": True}
 
 
 @app.get("/site.webmanifest")
@@ -1642,6 +1695,33 @@ def admin_permission_test(req: PermissionTestRequest, user: str = Depends(curren
 #: user's next question is "have I lost my history?" and the answer is no.
 _AUDIT_UNAVAILABLE = ("cannot read your question history right now - it is stored, not lost, "
                       "try again shortly")
+
+
+@app.get("/admin/demo-requests", dependencies=[Depends(_require_operator)])
+def admin_demo_requests(limit: int = 100,
+                        user: str = Depends(current_user)) -> dict:
+    """The "Book a demo" leads (#962), for an operator. This is the DURABLE record; the
+    email in demo_requests.notify() is only the ping, and pings get lost.
+
+    `durable` and `email_configured` are reported rather than assumed. With no DSN the
+    store is in-memory and dies with the process; with no mail key nothing is ever sent.
+    Either way an empty list would otherwise read as "nobody has asked" - the #200
+    affirmative-looking failure, pointed at a sales pipeline. This endpoint says which of
+    the two you are looking at.
+
+    Operator-gated for the /admin/audit reason: these rows are named people's work email
+    addresses and what they said they wanted, so "signed in" was never a sufficient gate.
+
+    `user` is unused in the body and is NOT decoration: current_user is the live-only
+    identity resolver, so depending on it is what stops a `demo:*` principal reaching this
+    at all (ADR 0009). _require_operator alone gates on the oid it is handed; this is what
+    guarantees the oid is a real one. Same shape as admin_audit above.
+    """
+    return {
+        "durable": isinstance(DEMO_REQUESTS, demo_requests.PgDemoRequestStore),
+        "email_configured": demo_requests.mail_config() is not None,
+        "requests": DEMO_REQUESTS.recent(max(1, min(int(limit), 500))),
+    }
 
 
 @app.get("/admin/telemetry", dependencies=[Depends(_require_operator)])

@@ -6,22 +6,27 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 /**
- * Submission mechanism: Formspree-style POST.
+ * Submission goes to OUR OWN backend, same origin: POST /demo-request.
  *
- * The endpoint is read from `NEXT_PUBLIC_FORM_ENDPOINT` at build time so a
- * real endpoint is never hardcoded here. When that env var is unset (e.g. a
- * local checkout or CI build without secrets), we fall back to a clearly
- * marked placeholder URL. The placeholder still lets the app build and the
- * form still "work" in the sense that submits POST somewhere and the UI
- * reacts to the response - in tests, `fetch` is mocked, so the exact target
- * URL never matters. Swapping in a real Formspree (or any JSON-accepting)
- * endpoint later is a one-line env change, no code change.
+ * #962. This used to POST to a Formspree-style endpoint read from
+ * `NEXT_PUBLIC_FORM_ENDPOINT`, falling back to a hardcoded placeholder URL
+ * when that was unset. It was unset on every build, so the placeholder
+ * shipped, and every lead this site ever took POSTed to
+ * `https://formspree.io/f/PLACEHOLDER_NOT_A_REAL_ENDPOINT` and 404'd. The
+ * visitor got "something went wrong, please try again", tried again, and hit
+ * the same 404. Nothing was stored and nobody was told.
+ *
+ * The env var is gone rather than merely set, because a build-time fallback to
+ * a URL that cannot work is the whole defect: it fails silently, it fails
+ * identically in every environment, and nothing in CI can tell a configured
+ * build from an unconfigured one. A same-origin relative path has no
+ * configuration to forget - the site is served by the very app that answers
+ * this route (see server/app.py), so there is no third party and no CORS.
+ *
+ * The server stores the lead before it tries to email anyone, so a mail outage
+ * can no longer turn a captured lead into a red error message.
  */
-const PLACEHOLDER_FORM_ENDPOINT =
-  "https://formspree.io/f/PLACEHOLDER_NOT_A_REAL_ENDPOINT";
-
-const FORM_ENDPOINT =
-  process.env.NEXT_PUBLIC_FORM_ENDPOINT || PLACEHOLDER_FORM_ENDPOINT;
+const FORM_ENDPOINT = "/demo-request";
 
 type FieldName = "name" | "email" | "company" | "message";
 
@@ -77,6 +82,10 @@ export function DemoForm() {
   const [values, setValues] = React.useState<FormValues>(INITIAL_VALUES);
   const [errors, setErrors] = React.useState<FormErrors>({});
   const [status, setStatus] = React.useState<SubmitStatus>("idle");
+  // Honeypot. Never shown, never labelled for a screen reader, never required -
+  // so nothing a human uses can fill it, and a bot that fills every input will.
+  // The server answers a tripped honeypot with the same 202 as a real submit.
+  const [honeypot, setHoneypot] = React.useState("");
 
   const nameRef = React.useRef<HTMLInputElement>(null);
   const emailRef = React.useRef<HTMLInputElement>(null);
@@ -134,7 +143,7 @@ export function DemoForm() {
       const response = await fetch(FORM_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, website: honeypot }),
       });
 
       if (response.ok) {
@@ -172,6 +181,19 @@ export function DemoForm() {
       noValidate
       onSubmit={handleSubmit}
     >
+      <div aria-hidden="true" className="absolute left-[-9999px] h-px w-px overflow-hidden">
+        <label htmlFor="demo-website">Leave this field empty</label>
+        <input
+          id="demo-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+        />
+      </div>
+
       <div className="flex flex-col gap-2">
         <label htmlFor="demo-name" className="text-sm font-medium text-fg">
           Name <span className="text-destructive">*</span>

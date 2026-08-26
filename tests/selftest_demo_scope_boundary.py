@@ -458,6 +458,36 @@ SIGNATURE_AUTHENTICATED_PATHS = {
     ("POST", "/stripe/webhook"),
 }
 
+# #962 - A FOURTH SHAPE, and it gets its own set for the reason the third one did: reading
+# it as public infra would be wrong, and the difference is worth keeping visible.
+#
+# /demo-request is an unauthenticated WRITE. A prospect asking for a demo has no account by
+# definition, so an identity dependency here is a contradiction - the same bootstrap shape
+# as /signin, except that this one takes data rather than serving a page.
+#
+# What separates it from PUBLIC_INFRA_PATHS is that it is not a read and not a shell: it
+# INSERTS a row. What separates it from ANONYMOUS_LINK_PATHS is the ADR 0021 question -
+# "what may this route give someone with no identity?" - whose answer here is nothing at
+# all. It returns `{"received": true}` and nothing else, on every path: a stored lead, a
+# tripped honeypot and a duplicate all produce the same 202, and no field of any other
+# submission is reachable through it. Reading the leads is a SEPARATE route,
+# /admin/demo-requests, which is operator-gated like /admin/audit for the same reason -
+# the rows are named people's work email addresses.
+#
+# The bounds, because an unauthenticated write is a spam surface by construction: the body
+# is validated and length-capped server-side (demo_requests.clean - the browser check is a
+# courtesy, not a control), a honeypot field drops bots without telling them which field
+# gave them away, and it is rate-limited per real client IP via rate_limit.client_ip, not
+# request.client.host - behind Caddy every request arrives from 127.0.0.1, so keying on the
+# socket peer would put the entire internet in one bucket.
+#
+# A SECOND unauthenticated intake route needs this paragraph written for it before it goes
+# in here - in particular the sentence about what it hands back, which is the one that
+# makes it safe.
+UNAUTHENTICATED_INTAKE_PATHS = {
+    ("POST", "/demo-request"),
+}
+
 # Mounted ASGI sub-apps are not ordinary APIRoutes - there is no per-route Depends to
 # inspect. /graphql enforces its OWN identity check inside get_context
 # (graphql_app.py: a demo:* identity is treated as unauthenticated there), which is
@@ -515,6 +545,12 @@ def test_the_unauthenticated_route_allowlists_are_the_expected_size():
                                  "anonymous route answering from customer documents needs the "
                                  "ADR's question answered first - what may it hand a stranger, "
                                  "and what bounds it?"),
+        "UNAUTHENTICATED_INTAKE_PATHS": ("a route that ACCEPTS data with no identity was "
+                                         "added. It must hand a caller nothing back but an "
+                                         "ack, validate and cap its own body server-side, "
+                                         "and be rate-limited on the real client IP - write "
+                                         "that paragraph beside the set and bump this number "
+                                         "in the same commit"),
         "SIGNATURE_AUTHENTICATED_PATHS": ("a route whose authentication is a payload signature "
                                           "rather than a session was added. It must hand a "
                                           "caller NOTHING about any customer, and the "
@@ -532,12 +568,15 @@ def test_the_unauthenticated_route_allowlists_are_the_expected_size():
                                    ("DEMO_SAFE_PATHS", 7, len(DEMO_SAFE_PATHS)),
                                    ("ANONYMOUS_LINK_PATHS", 4, len(ANONYMOUS_LINK_PATHS)),
                                    ("SIGNATURE_AUTHENTICATED_PATHS", 1,
-                                    len(SIGNATURE_AUTHENTICATED_PATHS))):
+                                    len(SIGNATURE_AUTHENTICATED_PATHS)),
+                                   ("UNAUTHENTICATED_INTAKE_PATHS", 1,
+                                    len(UNAUTHENTICATED_INTAKE_PATHS))):
         assert actual == expected, (
             f"{name} is now {actual} routes, expected {expected} - {why[name]}.")
     print(f"  PASS  unauthenticated allowlists pinned: {len(PUBLIC_INFRA_PATHS)} public infra, "
           f"{len(DEMO_SAFE_PATHS)} demo-safe, {len(ANONYMOUS_LINK_PATHS)} anonymous link, "
-          f"{len(SIGNATURE_AUTHENTICATED_PATHS)} signature-authenticated")
+          f"{len(SIGNATURE_AUTHENTICATED_PATHS)} signature-authenticated, "
+          f"{len(UNAUTHENTICATED_INTAKE_PATHS)} unauthenticated intake")
 
 
 def test_every_route_not_demo_safe_depends_on_the_live_only_current_user():
@@ -591,7 +630,8 @@ def test_every_route_not_demo_safe_depends_on_the_live_only_current_user():
                     "for whatever later claims one of these paths")
                 continue
             if (key in DEMO_SAFE_PATHS or key in PUBLIC_INFRA_PATHS
-                    or key in SIGNATURE_AUTHENTICATED_PATHS):
+                    or key in SIGNATURE_AUTHENTICATED_PATHS
+                    or key in UNAUTHENTICATED_INTAKE_PATHS):
                 continue
             deps = _route_dependencies(route, inherited)
             assert current_user in deps, (
@@ -609,9 +649,13 @@ def test_every_route_not_demo_safe_depends_on_the_live_only_current_user():
         "exception must name routes that actually exist")
     assert not missing_demo, f"demo-safe route(s) missing from the live app: {missing_demo}"
     assert not missing_public, f"public-infra route(s) missing from the live app: {missing_public}"
+    missing_intake = UNAUTHENTICATED_INTAKE_PATHS - seen
+    assert not missing_intake, (
+        f"unauthenticated-intake route(s) missing from the live app: {missing_intake} - an "
+        "exception that names no live route is one nobody is reviewing")
     print(f"  PASS  {len(seen)} routes swept: every route is demo-safe, public infra, "
-          "signature-authenticated, or depends on current_user (default-deny by "
-          "construction)")
+          "signature-authenticated, unauthenticated intake, or depends on current_user "
+          "(default-deny by construction)")
 
 
 def main():
