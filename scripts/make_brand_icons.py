@@ -210,6 +210,32 @@ _STAMP_TARGETS = (
 _STAMP_RE = re.compile(r"(/(?:favicon\.ico|apple-touch-icon\.png)\?v=)[0-9a-f]+")
 
 
+#: The icon files the version hashes, in a FIXED order. Explicit rather than "whatever
+#: order main() happened to write them in", so the token a --check re-derives cannot drift
+#: from the one that was stamped.
+_VERSIONED_FILES = (
+    "src/dbsearch/server/static/icon-192.png",
+    "src/dbsearch/server/static/icon-512.png",
+    "src/dbsearch/server/static/apple-touch-icon.png",
+    "site/public/favicon.ico",
+    "src/dbsearch/server/static/favicon.ico",
+)
+
+
+def committed_version() -> str:
+    """The version token implied by the icons ON DISK.
+
+    Reads bytes; renders nothing. That is the whole point - see icon_version. CI installs
+    a different Pillow than any given laptop, and a freshly rendered PNG is not
+    byte-identical across Pillow releases (measured: Pillow 9.0.1 vs 11.3.0 disagree on
+    all ten outputs), so a check that re-rendered and compared bytes was really asserting
+    "your Pillow matches mine". It went red on GitHub Actions while the icons were
+    perfectly correct. What actually needs guarding is that the ?v= token matches the
+    icons it claims to describe, and that is a pure function of the committed bytes.
+    """
+    return icon_version([(REPO / rel).read_bytes() for rel in _VERSIONED_FILES])
+
+
 def icon_version(payloads: "list[bytes]") -> str:
     """A short content hash over the whole icon set.
 
@@ -244,8 +270,26 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--font", type=Path, help="Instrument Serif .ttf/.otf/.woff2")
     ap.add_argument("--check", action="store_true",
-                    help="verify committed icons match a fresh render; write nothing")
+                    help="verify the ?v= stamp matches the committed icons; write nothing")
     args = ap.parse_args()
+
+    if args.check:
+        # Deliberately BEFORE any rendering, and before the font is even looked for.
+        # Verifying the stamp needs neither: it is a hash of the committed icons compared
+        # against the token the five surfaces declare. That makes this runnable on a clean
+        # clone and on CI, where site/ has not been built and the font does not exist - it
+        # used to skip there, which is the one place it most needed to run.
+        missing = [rel for rel in _VERSIONED_FILES if not (REPO / rel).is_file()]
+        if missing:
+            print("MISSING " + ", ".join(missing))
+            return 1
+        want = committed_version()
+        stale = stamp_version(want, check=True)
+        bad = [path for path, payload in stale if path.read_bytes() != payload]
+        for path in bad:
+            print(f"STALE {path.relative_to(REPO)} - expected ?v={want}")
+        print(f"{len(stale) - len(bad)}/{len(stale)} surfaces carry ?v={want}")
+        return 1 if bad else 0
 
     tmpdir = REPO / "site" / ".icon-build"
     tmpdir.mkdir(parents=True, exist_ok=True)
@@ -294,17 +338,13 @@ def main() -> int:
     written.append((app_static / "favicon.ico", ico_bytes))
 
     # Over the whole set, not just the .ico, so changing only the apple-touch render still
-    # moves the token every surface declares.
-    version = icon_version([payload for _, payload in written])
+    # moves the token every surface declares. Derived from what is about to be ON DISK, in
+    # the fixed _VERSIONED_FILES order, so committed_version() re-derives the same token.
+    pending = {str(path): payload for path, payload in written}
+    version = icon_version([
+        pending.get(str(REPO / rel), (REPO / rel).read_bytes() if (REPO / rel).is_file() else b"")
+        for rel in _VERSIONED_FILES])
     written.extend(stamp_version(version, check=args.check))
-
-    if args.check:
-        stale = [p for p, payload in written
-                 if not p.exists() or p.read_bytes() != payload]
-        for p in stale:
-            print(f"STALE {p.relative_to(REPO)}")
-        print(f"{len(written) - len(stale)}/{len(written)} icons up to date")
-        return 1 if stale else 0
 
     for path, payload in written:
         path.write_bytes(payload)

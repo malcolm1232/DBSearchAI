@@ -298,19 +298,25 @@ else:
               not (ROOT / "site" / "out" / stray).is_file())
 
 # ── 5. the committed icons match a fresh render ─────────────────────────────────────
-print("\n[5] committed icons are what the generator produces")
-# Cheap guard against someone hand-editing a PNG: the generator is the source of truth,
-# and --check re-renders and compares without writing.
+print("\n[5] the ?v= token still describes the icons on disk")
+# This is what keeps [3b]'s token honest: --check re-derives the hash from the COMMITTED
+# icon bytes and compares it to what the five surfaces declare, so hand-editing a PNG (or
+# regenerating icons without re-stamping) turns it red.
+#
+# It deliberately does NOT re-render and diff bytes. That is what this check used to do,
+# and it was really asserting "your Pillow matches the one the icons were rendered with":
+# green on a laptop (Pillow 9.0.1), RED on GitHub Actions (11.3.0), with the icons
+# perfectly correct either way. It also needed the font, so it SKIPPED on a clean clone -
+# silent in the one environment it most needed to speak. Now it is pure bytes: no font, no
+# renderer, same answer everywhere.
 import subprocess  # noqa: E402
 proc = subprocess.run(
     [sys.executable, str(ROOT / "scripts" / "make_brand_icons.py"), "--check"],
     capture_output=True, text=True, cwd=str(ROOT),
 )
-if "Instrument Serif not found" in (proc.stdout + proc.stderr):
-    print("  skip generator needs site/ built for the font")
-else:
-    check("committed icons match a fresh render", proc.returncode == 0,
-          proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else "")
+_out = (proc.stdout + proc.stderr).strip()
+check("the committed ?v= token matches the committed icon bytes", proc.returncode == 0,
+      _out.splitlines()[-1] if _out else "")
 
 
 print(f"\n{len(failures)} failure(s)")
