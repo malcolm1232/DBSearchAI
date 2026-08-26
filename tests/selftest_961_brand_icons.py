@@ -224,13 +224,17 @@ print("\n[3] the shells declare the icons")
 SHELLS_WITH_MANIFEST = ("index.html", "signin.html", "visitor.html")
 SHELLS = SHELLS_WITH_MANIFEST + ("link_gone.html",)
 
+seen_versions: set[str] = set()
+
 for name in SHELLS:
     html = (STATIC / name).read_text(encoding="utf-8")
     check(f"{name} declares rel=icon",
-          re.search(r'<link[^>]+rel="icon"[^>]+href="/favicon\.ico"', html) is not None)
+          re.search(r'<link[^>]+rel="icon"[^>]+href="/favicon\.ico\?v=', html) is not None)
     check(f"{name} declares apple-touch-icon",
-          re.search(r'rel="apple-touch-icon"[^>]+href="/apple-touch-icon\.png"',
+          re.search(r'rel="apple-touch-icon"[^>]+href="/apple-touch-icon\.png\?v=',
                     html) is not None)
+    seen_versions.update(re.findall(r'/(?:favicon\.ico|apple-touch-icon\.png)\?v=([0-9a-f]+)',
+                                    html))
     check(f"{name} tints the address bar for both schemes",
           html.count('name="theme-color"') == 2, str(html.count('name="theme-color"')))
     has_manifest = 'rel="manifest"' in html
@@ -238,6 +242,28 @@ for name in SHELLS:
         check(f"{name} links the manifest", has_manifest)
     else:
         check(f"{name} does NOT link the manifest (it is a 404 page)", not has_manifest)
+
+# ── 3b. the cache-busting token ─────────────────────────────────────────────────────
+print("\n[3b] the ?v= token that gets a returning visitor the new mark")
+
+# This exists because the first prod deploy of #961 did NOT fix the reported symptom.
+# The server was serving the right bytes - proven four ways - and every already-open tab
+# still drew the Vercel triangle, because Chrome keys its favicon cache by icon URL and
+# nothing had asked for a URL it had not already answered. The owner is a RETURNING
+# visitor; a fix only new visitors can see is not the fix they asked for.
+layout = (ROOT / "site" / "app" / "layout.tsx").read_text(encoding="utf-8")
+seen_versions.update(
+    re.findall(r'/(?:favicon\.ico|apple-touch-icon\.png)\?v=([0-9a-f]+)', layout))
+
+check("every surface carries an icon version", bool(seen_versions))
+check("every surface agrees on ONE version", len(seen_versions) == 1, str(seen_versions))
+for v in seen_versions:
+    check(f"version {v} is a real content hash, not the placeholder",
+          v != "0" * len(v) and len(v) == 10, v)
+# The token must track the BYTES - a stamp nobody re-derives is the "number in prose"
+# failure. Section [5] re-runs the generator in --check mode, which recomputes this hash
+# from the committed icons and reports the file stale if it disagrees.
+
 
 # ── 4. the marketing export declares them too ───────────────────────────────────────
 print("\n[4] the Next export")
@@ -253,6 +279,10 @@ else:
     check("export declares rel=icon with sizes=any (not a single 256 frame)",
           re.search(r'rel="icon"[^>]+sizes="any"', html) is not None,
           "Next's app/favicon.ico convention emits sizes=\"256x256\"; declare it by hand")
+    export_versions = set(
+        re.findall(r'/(?:favicon\.ico|apple-touch-icon\.png)\?v=([0-9a-f]+)', html))
+    check("export carries the same icon version as the app shells",
+          export_versions == seen_versions, f"export={export_versions} app={seen_versions}")
     check("export declares apple-touch-icon", 'rel="apple-touch-icon"' in html)
     check("export links the manifest", 'rel="manifest"' in html)
     check("export tints the address bar for both schemes",

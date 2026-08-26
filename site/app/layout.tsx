@@ -37,8 +37,8 @@ export const metadata: Metadata = {
   // shell and to a self-hoster with no site/out on disk.
   manifest: "/site.webmanifest",
   icons: {
-    icon: [{ url: "/favicon.ico", sizes: "any", type: "image/x-icon" }],
-    apple: "/apple-touch-icon.png",
+    icon: [{ url: "/favicon.ico?v=cf883b396d", sizes: "any", type: "image/x-icon" }],
+    apple: "/apple-touch-icon.png?v=cf883b396d",
   },
 };
 

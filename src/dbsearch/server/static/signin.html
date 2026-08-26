@@ -27,9 +27,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- #961: the brand mark, for the browser tab and for a phone home-screen tile.
        Absolute paths served by the icon routes in server/app.py, so they resolve the
-       same here, on the marketing site, and on a self-hosted box with no site/out. -->
-  <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+       same here, on the marketing site, and on a self-hosted box with no site/out.
+
+       ?v= is a content hash of the icon set, stamped by scripts/make_brand_icons.py
+       (which is also what keeps it honest - selftest_961 re-derives it from the bytes).
+       Chrome keys its favicon cache by icon URL and holds an entry for days: when this
+       card first shipped, prod served the new mark while every open tab kept drawing the
+       Vercel triangle, because nothing had asked for a URL the browser had not already
+       answered. Same lesson as #415, stickier cache. -->
+  <link rel="icon" href="/favicon.ico?v=cf883b396d" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=cf883b396d">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F7">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141416">

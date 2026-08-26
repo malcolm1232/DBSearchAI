@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
+import re
 import struct
 import sys
 from pathlib import Path
@@ -195,6 +197,49 @@ def write_ico(path: Path, images: list[Image.Image]) -> None:
     path.write_bytes(header + entries + blobs)
 
 
+#: Files carrying a versioned icon href, and the pattern that finds it. Stamped rather than
+#: templated at runtime because two of these are a static Next export and a page that runs no
+#: JavaScript at all, neither of which has a server to substitute anything.
+_STAMP_TARGETS = (
+    "src/dbsearch/server/static/index.html",
+    "src/dbsearch/server/static/signin.html",
+    "src/dbsearch/server/static/visitor.html",
+    "src/dbsearch/server/static/link_gone.html",
+    "site/app/layout.tsx",
+)
+_STAMP_RE = re.compile(r"(/(?:favicon\.ico|apple-touch-icon\.png)\?v=)[0-9a-f]+")
+
+
+def icon_version(payloads: "list[bytes]") -> str:
+    """A short content hash over the whole icon set.
+
+    THE POINT IS THE URL, NOT THE HEADER. Chrome keys its favicon cache by icon URL and
+    holds an entry for days: after this card shipped, dbsearch.ai served the new mark
+    while every already-open tab kept drawing the Vercel triangle, because nothing had
+    asked for a URL the browser had not already answered. Cache-Control cannot fix that
+    - a directive only governs entries stored after it. #415 learned this for the shell
+    and its modules; an icon is the same problem with a stickier cache.
+
+    Derived from the bytes, so it changes when and only when the mark does.
+    """
+    h = hashlib.sha256()
+    for payload in payloads:
+        h.update(payload)
+    return h.hexdigest()[:10]
+
+
+def stamp_version(version: str, *, check: bool = False) -> "list[tuple[Path, bytes]]":
+    """Rewrite every `?v=` icon href to `version`. Returns what changed."""
+    out = []
+    for rel in _STAMP_TARGETS:
+        path = REPO / rel
+        text = path.read_text(encoding="utf-8")
+        new = _STAMP_RE.sub(lambda m: m.group(1) + version, text)
+        if new != text or check:
+            out.append((path, new.encode("utf-8")))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--font", type=Path, help="Instrument Serif .ttf/.otf/.woff2")
@@ -247,6 +292,11 @@ def main() -> int:
     # sizes="any", which is what a multi-resolution .ico is supposed to say.
     written.append((site_public / "favicon.ico", ico_bytes))
     written.append((app_static / "favicon.ico", ico_bytes))
+
+    # Over the whole set, not just the .ico, so changing only the apple-touch render still
+    # moves the token every surface declares.
+    version = icon_version([payload for _, payload in written])
+    written.extend(stamp_version(version, check=args.check))
 
     if args.check:
         stale = [p for p, payload in written
