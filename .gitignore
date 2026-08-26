@@ -121,3 +121,6 @@ eval_fixtures/golden_pack_real/
 # The DOM guards jsdom (#792). Declared in tests/package.json, lockfile TRACKED so
 # `npm ci --prefix tests` is deterministic - the tree itself is not.
 tests/node_modules/
+
+# scripts/make_brand_icons.py unpacks the woff2 it renders from into here (#961).
+site/.icon-build/

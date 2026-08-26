@@ -22,6 +22,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- #961: the brand mark, for the browser tab and for a phone home-screen tile.
+       Absolute paths served by the icon routes in server/app.py, so they resolve the
+       same here, on the marketing site, and on a self-hosted box with no site/out. -->
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F7">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141416">
   <!-- A share link is meant for the people it was sent to, not for a search index. -->
   <meta name="robots" content="noindex, nofollow">
   <title>A shared conversation · DBSearch.AI</title>

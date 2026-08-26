@@ -381,9 +381,22 @@ DEMO_SAFE_PATHS = {
 #     public, and directly above) already returns to anyone who asks. It reads no
 #     store, no index and no document. A session that DOES exist is sent to /canvas
 #     client-side, which is a convenience, not a control.
+#   - the #961 brand icons (/favicon.ico, /apple-touch-icon*.png, /icon-{192,512}.png,
+#     /site.webmanifest): the same shape as /robots.txt, and public for a harder reason
+#     than convenience. A browser fetches /favicon.ico and /apple-touch-icon.png on its
+#     OWN initiative, before and regardless of any sign-in, so an icon behind an identity
+#     dependency is simply a missing icon. They are five constant files plus one constant
+#     JSON document, byte-identical for every caller: they read no store, no index and no
+#     document, take no parameters, and cannot vary by who is asking - so there is no per-
+#     user fact for a demo identity to reach. The manifest names only the product and its
+#     own icon paths, all of which are already public.
 PUBLIC_INFRA_PATHS = {
     ("GET", "/health"), ("GET", "/config"), ("GET", "/version"), ("GET", "/"),
     ("GET", "/robots.txt"), ("GET", "/canvas"), ("GET", "/signin"),
+    ("GET", "/favicon.ico"), ("GET", "/apple-touch-icon.png"),
+    ("GET", "/apple-touch-icon-precomposed.png"),
+    ("GET", "/icon-192.png"), ("GET", "/icon-512.png"),
+    ("GET", "/site.webmanifest"),
     ("GET", "/app"), ("GET", "/ask"), ("GET", "/chat"), ("GET", "/draft"),
     ("GET", "/admin"), ("GET", "/developer"),
     ("GET", "/auth/login"), ("GET", "/auth/callback"), ("POST", "/auth/logout"),
@@ -512,7 +525,10 @@ def test_the_unauthenticated_route_allowlists_are_the_expected_size():
     # Each expected number is written ONCE. Spelling it again inside the failure message is how
     # a message ends up disagreeing with the assertion it explains, which is a smaller version
     # of the defect this whole test replaced.
-    for name, expected, actual in (("PUBLIC_INFRA_PATHS", 24, len(PUBLIC_INFRA_PATHS)),
+    # 24 -> 30: the six #961 brand-icon routes. Inspected, not rubber-stamped - the
+    # paragraph beside PUBLIC_INFRA_PATHS says why a favicon cannot sit behind an identity
+    # dependency, and what makes these six constant files rather than a surface.
+    for name, expected, actual in (("PUBLIC_INFRA_PATHS", 30, len(PUBLIC_INFRA_PATHS)),
                                    ("DEMO_SAFE_PATHS", 7, len(DEMO_SAFE_PATHS)),
                                    ("ANONYMOUS_LINK_PATHS", 4, len(ANONYMOUS_LINK_PATHS)),
                                    ("SIGNATURE_AUTHENTICATED_PATHS", 1,
