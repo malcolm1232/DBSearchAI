@@ -185,6 +185,22 @@ class PgDemoRequestStore:
 
 # ── notification ────────────────────────────────────────────────────────────────────
 
+#: Sent on every provider call. See the note beside the header for why it is load-bearing.
+USER_AGENT = "DBSearch.AI/1.0 (+https://dbsearch.ai)"
+
+#: Anything email-shaped is stripped from a provider's error before it is logged.
+_EMAILISH = re.compile(r"[^\s\"'<>]+@[^\s\"'<>]+")
+
+
+def _safe_error(body: bytes) -> str:
+    """A provider error, trimmed and with addresses removed, safe to put in a log."""
+    try:
+        text = body.decode("utf-8", "replace")
+    except Exception:
+        return "<unreadable>"
+    return _EMAILISH.sub("<address>", text).strip().replace("\n", " ")[:200]
+
+
 def mail_config() -> "tuple[str, str, str] | None":
     """(api_key, sender, recipient), or None when this box cannot send mail.
 
@@ -240,15 +256,28 @@ def notify(fields: dict) -> bool:
 
     req = urllib.request.Request(
         "https://api.resend.com/emails", data=payload, method="POST",
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                 "Accept": "application/json",
+                 # NOT cosmetic, and not optional. api.resend.com sits behind Cloudflare,
+                 # which blocks urllib's default `Python-urllib/3.11` on client signature.
+                 # The reply is a Cloudflare error page - HTTP 403, body "error code: 1010"
+                 # - which reads exactly like a Resend auth failure and is not one: the
+                 # identical request with this header set returns 200 and an email id.
+                 # Verified against the live API from the prod box.
+                 "User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             if 200 <= resp.status < 300:
                 return True
-            _log.error("demo request email refused: HTTP %s", resp.status)
+            _log.error("demo request email refused: HTTP %s %s",
+                       resp.status, _safe_error(resp.read()))
     except urllib.error.HTTPError as exc:
-        # Status only. A provider's error body can echo the recipient back.
-        _log.error("demo request email refused: HTTP %s", exc.code)
+        # The body is included, with anything email-shaped removed. Status alone sent the
+        # #962 follow-up chasing a permissions problem that did not exist - the body said
+        # "error code: 1010", which names the real cause in four words. What must not
+        # travel is the lead's address, which a provider error can echo back.
+        _log.error("demo request email refused: HTTP %s %s",
+                   exc.code, _safe_error(exc.read()))
     except Exception as exc:
         _log.error("demo request email failed: %s", type(exc).__name__)
     return False

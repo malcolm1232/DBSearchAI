@@ -150,6 +150,63 @@ finally:
     app_mod.DEMO_REQUESTS = _saved
 
 
+# ── 2b. the provider call itself ────────────────────────────────────────────────────
+print("\n[2b] the outbound request Resend actually sees")
+
+# Found in prod AFTER the key was configured: notify() sent no User-Agent, so urllib's
+# default "Python-urllib/3.11" was blocked by the Cloudflare WAF in front of
+# api.resend.com. The reply was HTTP 403 with body "error code: 1010" - a Cloudflare error
+# page that reads exactly like a Resend permissions failure and is not one. The identical
+# request with a User-Agent returned 200 and an email id.
+import urllib.request  # noqa: E402
+
+captured = {}
+
+
+def _fake_urlopen(req, timeout=None):
+    captured["headers"] = {k.lower(): v for k, v in req.header_items()}
+    captured["url"] = req.full_url
+
+    class _R:
+        status = 200
+
+        def read(self):
+            return b'{"id":"test"}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+    return _R()
+
+
+os.environ["DEMO_MAIL_API_KEY"] = "re_not_a_real_key"
+os.environ["DEMO_MAIL_FROM"] = "noreply@quantifyme.ai"
+os.environ["DEMO_MAIL_TO"] = "privacy@dbsearch.ai"
+_real_urlopen = urllib.request.urlopen
+urllib.request.urlopen = _fake_urlopen
+try:
+    sent = demo_requests.notify(lead())
+    check("notify() reports success on a 2xx", sent is True)
+    ua = captured.get("headers", {}).get("user-agent", "")
+    check("a real User-Agent is sent (Cloudflare blocks python-urllib)",
+          bool(ua) and "python-urllib" not in ua.lower(), repr(ua))
+    check("the User-Agent identifies us", "DBSearch" in ua, repr(ua))
+    check("posts to the Resend send endpoint",
+          captured.get("url") == "https://api.resend.com/emails", str(captured.get("url")))
+finally:
+    urllib.request.urlopen = _real_urlopen
+    for _k in ("DEMO_MAIL_API_KEY", "DEMO_MAIL_FROM", "DEMO_MAIL_TO"):
+        os.environ.pop(_k, None)
+
+# A provider error must be diagnosable WITHOUT echoing the lead's address.
+red = demo_requests._safe_error(b'{"message":"not allowed for ada@example.com","code":403}')
+check("a provider error is logged with addresses redacted",
+      "ada@example.com" not in red and "<address>" in red, red)
+check("but the useful part of the error survives", "403" in red or "not allowed" in red, red)
+
+
 # ── 3. the bounds an unauthenticated write has to carry ─────────────────────────────
 print("\n[3] validation, honeypot and rate limit")
 
