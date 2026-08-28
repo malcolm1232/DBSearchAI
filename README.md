@@ -66,9 +66,10 @@ Also shipped: multi-tenant workspaces, per-owner document partitions, Entra / Go
 email-password sign-in, document and conversation sharing including anyone-with-the-link, and
 an admin surface.
 
-## What does not work yet
+## Known limits and what is still unproven
 
-An honest list matters more here than a feature grid, so:
+The list above says what is built; this one says where the edges are - a hard limit, a
+measured floor, or a claim proven on one engine but not yet on the others:
 
 - **Cross-store joins are one hop only.** A question whose filter lives in store A and whose
   measure lives in store B is decomposed and answered (ADR 0014 option B; see
