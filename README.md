@@ -86,8 +86,12 @@ An honest list matters more here than a feature grid, so:
   the failure mode that matters, because it reads exactly like a correct answer. The fixes that
   day and the next (#474-#495) took the scorer to **29/38, identical across three runs**, with
   the confidently-wrong count down to **1** at the last tally; cross-store join (capability D)
-  is still 0/5. Nothing has been re-measured since 260804, so read 29/38 as a floor, not a
-  current score.
+  is still 0/5. The three numbers are easy to conflate: **31/32 is routing** (the right store
+  was reached), **29/38 is SQL answers**, and the **document rail** is a separate pack - 120
+  private documents, 33 questions, 26/33 at its last stable run, zero fabricated answers and
+  zero leaks across 29 restricted documents, with the right document ranked first on nearly
+  every miss. Nothing has been re-measured since 260804, so read all of these as a floor,
+  not a current score.
 - **Delegated query is proven live on one engine.** A store can be configured to query as the
   signed-in user, so the database enforces its own row-level security rather than trusting us.
   The two-identity run was done for real on Azure SQL with Entra (#241, 260717): the same

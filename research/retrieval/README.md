@@ -34,7 +34,15 @@ rescued by ADR 0014, not yet re-measured on this pack). In the first run **18 of
 failures reached the right store** - the gap is downstream of retrieval, so no embedder can
 close it.
 
-Nothing has been re-measured after 260804, so the table is a floor, not a current score.
+Three numbers from the same investigation are easy to conflate, so keep them apart:
+**31/32 is routing** (the right store was reached, every run), **29/38 is SQL answers**, and
+the **document rail** is a separate, gitignored pack (#487/#494): 120 private documents,
+33 questions, 23/33 byte-identical across three warm runs (`evidence/runs/real_pack_docq_a/b/c`),
+then 26/33 (`real_pack_cap_doc_a/b/warm`); zero fabricated answers (G 8/8), zero leaks across
+29 restricted documents, and the right document ranked FIRST on 9 of the 10 misses
+(`evidence/docq_fail_answers.json`). Retrieval is not the bottleneck on either rail.
+
+Nothing has been re-measured after 260804, so every table here is a floor, not a current score.
 The `verdict()` in `08_real_pack.py` predates the #476 decline wording, so re-run its
 abstain markers before trusting its WRONG tally on a newer answers file.
 
