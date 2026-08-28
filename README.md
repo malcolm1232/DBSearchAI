@@ -81,16 +81,21 @@ An honest list matters more here than a feature grid, so:
   `tests/selftest_cross_store_rescue.py`). Two-hop shapes - rank in one store, then carry the
   winner into another - still fail.
 - **Answer accuracy is a standing problem, not a solved one.**
-  [`research/retrieval/`](./research/retrieval) is the honest record: on its 38-question
-  real-data pack the product answered 19 and got **7 confidently wrong**, which is the failure
-  mode that matters because it reads exactly like a correct answer. Several of the named
-  failures have since been fixed, but that committed capability table has not been re-measured,
-  so read it as a floor rather than a current score.
-- **Delegated query is built but not proven live.** A store can be configured to query as the
+  [`research/retrieval/`](./research/retrieval) is the honest record. On its 38-question
+  real-data pack the first measurement (260803) answered 19 and got **7 confidently wrong** -
+  the failure mode that matters, because it reads exactly like a correct answer. The fixes that
+  day and the next (#474-#495) took the scorer to **29/38, identical across three runs**, with
+  the confidently-wrong count down to **1** at the last tally; cross-store join (capability D)
+  is still 0/5. Nothing has been re-measured since 260804, so read 29/38 as a floor, not a
+  current score.
+- **Delegated query is proven live on one engine.** A store can be configured to query as the
   signed-in user, so the database enforces its own row-level security rather than trusting us.
-  The refusal path is tested and the plumbing is exercised offline, but the two-identity run
-  against a live tenant - alice sees fewer rows than bob, for real - has not been done.
-  Treat it as unverified until it has.
+  The two-identity run was done for real on Azure SQL with Entra (#241, 260717): the same
+  question through the same store returned 6 rows for alice and 2 for bob, filtered by the
+  database's RLS on each user's own token, and an anonymous caller got 401. Re-proven 260813
+  when #721 (ODBC pooling handing one user's connection to another) was found and closed. The
+  other delegated rails (BigQuery, Redshift, S3) have the positive path proven and the refusal
+  path tested (#659), but no live alice-vs-bob row split yet.
 - **The control plane runs in-process.** The split is real in code and enforced by the
   boundary validator, but there is no network separation or mTLS deployed yet.
 

@@ -9,25 +9,34 @@ network, so it opens and re-runs in about a second.
 
 ## Current answer
 
-**Measured on real third-party data (#473), the product answers 19 of 38 questions, and
-7 of the 38 answers are confidently wrong.**
+**Measured on real third-party data (#473), the scorer now passes 29 of 38 questions,
+identical across three runs (`evidence/runs/real_pack_495{a,b,c}.json`, 260804).**
+The first measurement that morning was 19/38 with **7 confidently wrong**; the 260803
+handover tallied the wrong count at **1** after #476/#477/#479/#481, and #486/#491/#495
+lifted the pass rate from there.
 
-That second number is the one to care about, and no scorer reports it.
+The confidently-wrong number is the one to care about, and no scorer reports it.
 A confidently wrong answer is not a miss the user can detect - it reads exactly like a
 correct one.
 
-| capability | what it tests | passed |
-| --- | --- | --- |
-| A | single-table lookup | 6/6 |
-| B | aggregate | 4/6 |
-| C | within-store join | 4/5 |
-| D | **cross-store join** | **0/5** |
-| E | **value linking** | **0/5** |
-| F | **wrong-vocab paraphrase** | **0/5** |
-| G | unanswerable, must decline | 5/6 |
+| capability | what it tests | first run (260803) | latest (495, 260804) |
+| --- | --- | --- | --- |
+| A | single-table lookup | 6/6 | 6/6 |
+| B | aggregate | 4/6 | 5/6 |
+| C | within-store join | 4/5 | 5/5 |
+| D | **cross-store join** | **0/5** | **0/5** |
+| E | value linking | 0/5 | 4/5 |
+| F | wrong-vocab paraphrase | 0/5 | 3/5 |
+| G | unanswerable, must decline | 5/6 | 6/6 |
 
-Three capabilities score zero, and **18 of the 19 failures reached the right store**.
-The gap is downstream of retrieval, so no embedder can close it.
+Cross-store join is the one capability still at zero (#474; the one-hop case has since been
+rescued by ADR 0014, not yet re-measured on this pack). In the first run **18 of the 19
+failures reached the right store** - the gap is downstream of retrieval, so no embedder can
+close it.
+
+Nothing has been re-measured after 260804, so the table is a floor, not a current score.
+The `verdict()` in `08_real_pack.py` predates the #476 decline wording, so re-run its
+abstain markers before trusting its WRONG tally on a newer answers file.
 
 Run [`analysis/08_real_pack.py`](analysis/08_real_pack.py) for the verbatim wrong answers.
 The sharpest one: *"The average employee salary in the HR compensation database is
