@@ -19,12 +19,6 @@ data plane holds documents, embeddings, indexes and inference, and the control p
 allowed metadata and telemetry. That boundary is a schema plus a validator, not a promise -
 see [`src/dbsearch/boundary/`](./src/dbsearch/boundary) and `tests/selftest_boundary.py`.
 
-**That property belongs to the in-tenant deployment.** If you run the hosted demo at
-dbsearch.ai instead, you are using our box: our vault, our Postgres, our Azure services, and a
-third-party model provider for chat. It is a demo, and we can see what you put in it. Please
-do not put anything confidential there. Self-host or in-tenant is the mode the residency claim
-is about, and it is the one you can verify yourself from this repository.
-
 ## Run it
 
 **Trying it out** - seeded, no secrets needed:
