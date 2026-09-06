@@ -322,8 +322,11 @@
   background-image:radial-gradient(var(--dot) 1.4px, transparent 1.4px);
   background-size:26px 26px;background-position:13px 13px}
 .canvas-surface .world.animating {transition:transform .26s cubic-bezier(.4,0,.2,1)}
-/* zoom controls */
-.canvas-surface .zoomctl {position:absolute;left:16px;bottom:16px;z-index:32;display:flex;align-items:center;
+/* zoom controls. #970: top-RIGHT, not bottom-left. The ask dock is centred at 92% of the canvas,
+   so on any canvas under ~1100px (i.e. whenever the Sources panel is open) a bottom-left pill
+   sat on top of the question input. The bottom band belongs to the dock; zoom goes where Figma
+   puts it. Toasts are top-centre, so the top-right corner is free. */
+.canvas-surface .zoomctl {position:absolute;right:16px;top:16px;z-index:32;display:flex;align-items:center;
   gap:2px;background:var(--panel);border:1px solid var(--border);border-radius:11px;
   padding:4px;box-shadow:var(--shadow)}
 .canvas-surface .zoomctl button {width:30px;height:30px;border:none;background:transparent;color:var(--muted);
