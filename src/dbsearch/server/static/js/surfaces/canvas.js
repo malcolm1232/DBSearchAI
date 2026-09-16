@@ -51,6 +51,14 @@ const MARKUP = `
          renders a "Connect" link to /canvas for a provider you have not granted yet, and
          this is what it lands on. -->
     <div id="authArea" class="autharea"></div>
+    <!-- #975: below 920px the source rail is a bottom sheet rather than a column, and this is
+         its door. CSS keeps it display:none above that width, where the rail is already a
+         column - see .cv-addsrc. Hairline SVG, not an emoji glyph (DESIGN_SYSTEM s6). -->
+    <button class="btn cv-addsrc" id="addSource" aria-expanded="false"
+            title="Add a source to this canvas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+      Add a source
+    </button>
     <button class="btn" id="reset" title="Load the live demo manifest from the server">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M20 10a8 8 0 0 0-14.9-3M4 14a8 8 0 0 0 14.9 3"/></svg>
       Live demo
@@ -193,6 +201,81 @@ export function mountCanvas(root) {
   // the only one today, and it already clears itself on success or failure - but not on
   // "the user moved to Ask mid-crawl", which before this was simply impossible.
   const timers = new Set();
+
+  /* ---------------- mobile sheets (#975) ----------------
+     Below 920px the source rail and the config panel are bottom sheets instead of grid
+     columns. NOTHING here re-homes their markup: buildRail() still writes into #rail and
+     renderPanel() still writes into #panel, exactly as on a wide screen. All that changes is
+     which CSS box those two elements occupy, so every handler either of them has ever wired
+     keeps working and there is no second rendering path to drift from the first.
+
+     The breakpoint comes from matchMedia rather than innerWidth so it cannot disagree with the
+     media query doing the actual work - one number, one source.
+
+     Declared up here, with the other surface-level helpers, and not down beside the drawer it
+     shares a scrim with: renderPanel() calls syncPanelSheet() and renderPanel() is defined
+     1200 lines above the drawer, so a `const` declared there would sit in the temporal dead
+     zone for any render that beat the wiring to it. */
+  const SHEET_MQ = window.matchMedia("(max-width: 920px)");
+  function isSheetMode(){ return SHEET_MQ.matches; }
+  function closeSheets(){
+    host.classList.remove("sheet-rail","sheet-panel");
+    const b=document.getElementById("addSource"); if(b) b.setAttribute("aria-expanded","false");
+    // The scrim is shared with the yaml drawer, so only drop it if the drawer is not the one
+    // holding it up - otherwise dismissing a sheet would un-dim an open drawer.
+    const d=document.getElementById("drawer");
+    if(!d || !d.classList.contains("open"))
+      document.getElementById("scrim").classList.remove("open");
+  }
+  function openSheet(which){
+    if(!isSheetMode()) return;
+    closeProvMenu();
+    host.classList.remove("sheet-rail","sheet-panel");
+    host.classList.add(which==="rail" ? "sheet-rail" : "sheet-panel");
+    document.getElementById("scrim").classList.add("open");
+    const b=document.getElementById("addSource");
+    if(b) b.setAttribute("aria-expanded", which==="rail" ? "true" : "false");
+  }
+
+  /* Raise the panel sheet when the SELECTION changes, and put it away when nothing is
+     selected. Keyed on what is selected rather than on "is a node selected", because
+     renderPanel() runs on every renderAll - a drag, a status poll, a theme flip - and
+     re-asserting `open` on each of those would spring the sheet back up the instant a user
+     dismissed it while the node underneath stayed selected. */
+  let sheetPanelKey=null;
+  function syncPanelSheet(){
+    if(!isSheetMode()){ sheetPanelKey=null; return; }
+    // A key that cannot collide with a uid by construction: tag which space it came from
+    // rather than inventing a sentinel uid the node ids might one day produce.
+    const want = setupMode ? "mode:setup" : (selected ? "node:"+selected : null);
+    if(!want){
+      sheetPanelKey=null;
+      if(host.classList.contains("sheet-panel")) closeSheets();
+      return;
+    }
+    if(want===sheetPanelKey) return;                     // unchanged - the user's dismissal stands
+    sheetPanelKey=want;
+    if(!panelHasContent()) return;
+    openSheet("panel");
+  }
+  // A demo visitor has no config panel at all: applyModeChrome() sets it display:none because
+  // it is live-only (#279). Raising an empty sheet over their canvas is worse than not.
+  function panelHasContent(){
+    const p=document.getElementById("panel");
+    return !!p && p.style.display!=="none";
+  }
+  /* A DELIBERATE request for a node's config - the node was tapped, or a context-menu entry
+     asked for it - as opposed to the incidental re-renders syncPanelSheet() guards against.
+
+     It needs its own door because the guard above is keyed on the selection: dismiss the sheet
+     while a node is selected, tap that same node again, and `selected` has not changed, so
+     syncPanelSheet() would correctly conclude "nothing new" and correctly leave the sheet
+     down - which is the wrong answer to a tap. Asking is not the same as still being selected. */
+  function requestPanelSheet(){
+    if(!isSheetMode() || !panelHasContent()) return;
+    sheetPanelKey = selected ? "node:"+selected : null;   // keep the guard in step
+    if(sheetPanelKey) openSheet("panel");
+  }
 
   // #643: IS THIS SURFACE STILL ON SCREEN?
   //
@@ -574,6 +657,10 @@ export function mountCanvas(root) {
       el.onclick=()=>{
         const kind=el.dataset.kind, g=kindGate(kind);
         closeProvMenu();
+        // #975: the rail sheet has done its job - put it away so the node it just added is
+        // visible on the canvas underneath. A live user's panel sheet then rises in its place
+        // (syncPanelSheet); a demo visitor, who has no panel, is left looking at the node.
+        closeSheets();
         if(!g){ addNode(kind); return; }
         // Same three endings as the row-level gate: a link to follow, the account panel for
         // a provider that vaults keys through a form (ADR 0024), or an honest dead end.
@@ -591,6 +678,14 @@ export function mountCanvas(root) {
   // and a second copy of this arithmetic would be the thing that drifts.
   function placeProvMenu(row){
     const r=row.getBoundingClientRect(), mw=provmenu.offsetWidth, mh=provmenu.offsetHeight;
+    // #975: in sheet mode the rail is a full-width bottom sheet, so "beside the row" is off the
+    // screen edge - r.right IS the edge. The flyout centres over the sheet and sits above the
+    // row that opened it, which is also where a thumb is not covering it.
+    if(isSheetMode()){
+      provmenu.style.left=Math.max(8,(window.innerWidth-mw)/2)+"px";
+      provmenu.style.top=Math.max(8,Math.min(r.top-mh-8,window.innerHeight-mh-8))+"px";
+      return;
+    }
     let left=r.right+8, top=r.top;
     if(left+mw>window.innerWidth-8) left=r.left-mw-8;
     if(top+mh>window.innerHeight-8) top=window.innerHeight-mh-8;
@@ -784,7 +879,9 @@ export function mountCanvas(root) {
         : node.kind==='upload' ? upNodeButton(node) : dbGrantButton(node));
     world.appendChild(el);
     wireDrag(el,node);
-    el.addEventListener("click",e=>{ if(!el._moved){ selected=node.uid; renderAll(); } });
+    // #975: requestPanelSheet() after the render - on a phone the config panel is a bottom
+    // sheet, and tapping a node is how you ask for it.
+    el.addEventListener("click",e=>{ if(!el._moved){ selected=node.uid; renderAll(); requestPanelSheet(); } });
     // #917 (owner, 260821): clicking the NODE lands on the overview panel rather than jumping
     // to the modal - the panel is where every document action lives (Upload files, Share,
     // Delete), so landing there keeps one door per surface. That rule is about the CARD, and
@@ -1684,12 +1781,18 @@ export function mountCanvas(root) {
   function renderPanel(){
     if(!alive) return;
     const p=document.getElementById("panel");
+    // #975: on a phone this element is a bottom sheet, so a selection has to RAISE it. On a
+    // wide screen the column is always there and syncPanelSheet() is a no-op. Called here, at
+    // the one place every selection already funnels through, rather than at the dozen call
+    // sites that assign `selected` - see the list on `selected` above.
+    syncPanelSheet();
     if(setupMode){ renderSetupPanel(p); return; }
     const node=state.find(s=>s.uid===selected);
     if(!node){
       p.innerHTML='<div class="ph"><div class="pg">◇</div><div><b>No source selected</b>'+
-        '<div style="color:var(--faint);font-size:12px;margin-top:4px">Add a source from the left,'+
-        ' or click a node to configure its connection, business unit, and permissions.</div></div></div>';
+        '<div style="color:var(--faint);font-size:12px;margin-top:4px">Add a source '+
+        (isSheetMode()?'from <b>Add a source</b> above':'from the left')+
+        ', or click a node to configure its connection, business unit, and permissions.</div></div></div>';
       return;
     }
     if(node.derived){ renderDocsPanel(p, node); return; }   // #917: the uploads overview
@@ -2615,9 +2718,14 @@ export function mountCanvas(root) {
     const cta=(authState.enabled||authState.google_enabled)
       ? '<br><a class="hint-signin" href="/signin">Sign in</a> to connect your own.'
       : '';
+    // #975: "from the left" is only true where the rail IS on the left. Below 920px it is a
+    // bottom sheet behind "Add a source" in the header, and an arrow pointing at an empty
+    // margin is the kind of copy that makes a user hunt for a control that was never there.
+    const where=isSheetMode()
+      ? 'or add them with <b>Add a source</b> above to see them on the canvas.'
+      : 'or add them from the left &larr; to see them on the canvas.';
     h.innerHTML='<b>'+(n||"Sample")+' sample database'+(n===1?'':'s')+' are already connected'+
-      '</b> and permission-trimmed.<br>Ask a question below right now, '+
-      'or add them from the left &larr; to see them on the canvas.'+cta;
+      '</b> and permission-trimmed.<br>Ask a question below right now, '+where+cta;
     c.appendChild(h);
   }
   function clearDemoHint(){ const h=document.getElementById("demoHint"); if(h) h.remove(); }
@@ -3500,6 +3608,7 @@ export function mountCanvas(root) {
     document.getElementById("scrim").classList.remove("open");
   }
 
+
   /* ---------------- right-click node menu ---------------- */
   const ctxmenu=document.getElementById("ctxmenu");
   function closeCtxMenu(){ ctxmenu.classList.remove("show"); }
@@ -3509,14 +3618,14 @@ export function mountCanvas(root) {
     // "connection" is /admin/documents, which has nothing to test.
     if(node.derived){
       const dItems=[
-        {ic:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.63.63 1.1 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>',label:"Open",fn:()=>{selected=node.uid;renderAll();}},
+        {ic:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.63.63 1.1 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>',label:"Open",fn:()=>{selected=node.uid;renderAll();requestPanelSheet();}},
         {sep:true},
         {ic:'<path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-1 0v14a2 2 0 01-2 2H8a2 2 0 01-2-2V6"/>',label:"Delete",danger:true,fn:()=>deleteNode(node)},
       ];
       return renderCtxMenu(dItems,x,y);
     }
     const items=[
-      {ic:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.63.63 1.1 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>',label:"Configure",fn:()=>{selected=node.uid;renderAll();}},
+      {ic:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.63.63 1.1 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>',label:"Configure",fn:()=>{selected=node.uid;renderAll();requestPanelSheet();}},
       {ic:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>',label:"Rename",fn:()=>renameNode(node)},
       {ic:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/>',label:"Duplicate",fn:()=>duplicateNode(node)},
       {ic:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',label:"Test connection",fn:()=>{selected=node.uid;renderAll();testConn(node);}},
@@ -3840,7 +3949,14 @@ export function mountCanvas(root) {
 
   document.getElementById("export").onclick=openDrawer;
   document.getElementById("closeDrawer").onclick=closeDrawer;
-  document.getElementById("scrim").onclick=closeDrawer;
+  // #975: the scrim is now shared with the mobile sheets, so it dismisses whatever is actually
+  // over it rather than assuming the yaml drawer. Both, if both somehow are.
+  document.getElementById("scrim").onclick=()=>{ closeDrawer(); closeSheets(); };
+  // #975: the door to the rail sheet. A toggle, because the same tap that opened it is the
+  // one a thumb reaches for to put it away.
+  document.getElementById("addSource").onclick=()=>{
+    if(host.classList.contains("sheet-rail")) closeSheets(); else openSheet("rail");
+  };
   document.getElementById("reset").onclick=()=>loadLiveDemo({fresh:true});   // #199 escape hatch
   document.getElementById("setupChat").onclick=toggleSetup;
   document.getElementById("compose").onclick=composeUp;
@@ -3884,7 +4000,7 @@ export function mountCanvas(root) {
     wireModalHost(p, {isOpen:()=>p.classList.contains("show"), onDismiss:closeSpPicker}); })();
   // The three that reach outside the surface, and so the three that have to be given back.
   // (The picker's own Escape is wireModalHost's, above.)
-  on(window,"keydown",e=>{ if(e.key==="Escape"){ closeDrawer(); closeCtxMenu(); closeProvMenu(); } });
+  on(window,"keydown",e=>{ if(e.key==="Escape"){ closeDrawer(); closeCtxMenu(); closeProvMenu(); closeSheets(); } });
   on(window,"resize",drawEdges);
   // click anywhere outside the context menu closes it
   on(document,"pointerdown",e=>{ if(!e.target.closest(".ctxmenu")) closeCtxMenu(); },true);

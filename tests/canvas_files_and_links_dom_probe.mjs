@@ -44,6 +44,12 @@ for (const k of ["document", "window", "location", "HTMLElement", "Node", "Event
 Object.defineProperty(globalThis, "navigator", {
   value: { clipboard: { writeText: async () => {} } }, configurable: true, writable: true,
 });
+// jsdom 29 does not implement matchMedia (it never has), and canvas.js reads it at mount to
+// decide whether the source rail and config panel are columns or bottom sheets (#975). The
+// other twelve canvas probes already carry this line; these two were simply written before
+// anything on the surface asked the question. `matches:false` = the wide layout, which is
+// the one every assertion in this file is written against.
+window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
 const _ls = new Map();
 Object.defineProperty(window, "localStorage", {
   value: { getItem: (k) => (_ls.has(k) ? _ls.get(k) : null),

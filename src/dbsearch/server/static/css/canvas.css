@@ -162,6 +162,16 @@
 .canvas-surface .cv-title .sub {
   color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
 }
+/* #975: the door to the rail sheet, which only exists below 920px. Declared here rather than
+   only inside the media query so the default is "absent" - a wide canvas shows the rail as a
+   column, and a second way in would be the kind of duplicate affordance s11.2 warns about.
+
+   THREE classes, not two, and the media query below matches it. `.canvas-surface .btn` sets
+   display:inline-flex and is declared ~90 lines LATER in this file, so an equal-specificity
+   `.canvas-surface .cv-addsrc` loses the tie on source order and the button shows up at 1440
+   next to the rail it duplicates. Measured that way before this selector grew. Same hazard
+   the media query at the foot of this file already warns about for `.main`. */
+.canvas-surface .cv-head .cv-addsrc { display: none; }
 
 /* ── resets ───────────────────────────────────────────────────────────────────
    `* { box-sizing }` and `html, body { margin: 0 }` are gone: app.css already sets
@@ -699,5 +709,84 @@
      `body.demo-mode .main` outranked the same rule for the same reason. */
   .canvas-surface .main,
   .canvas-surface.demo-mode .main {grid-template-columns:minmax(0, 1fr)}
-  .canvas-surface .rail, .canvas-surface .panel {display:none}
+
+  /* #975: the rail and the panel become BOTTOM SHEETS here. They used to be `display:none`,
+     which is why Connectors on a phone was a canvas and nothing else.
+
+     WHAT THAT COST, measured on prod at 390: the rail is the ONLY "Add a source" affordance
+     on the surface - four provider rows opening fifteen services - so hiding it meant a phone
+     could not add a connector at all. The panel is the only place a node's connection fields
+     live, AND the only home of "Connect with Microsoft"; renderAuth's comment above it says
+     Microsoft "needs no equivalent" precisely because that button is "already on this canvas".
+     Below 920px it was not, so the Google pill in .cv-head was the last grant left standing
+     and the surface looked like it only supported one provider.
+
+     Collapsing the two side TRACKS was right - 236px + 336px of chrome around a 390px screen
+     is no canvas at all. Hiding the two CONTENTS was the defect. A sheet keeps the tracks
+     collapsed and gives the contents the width they need, on demand.
+
+     Deliberately transform-only: applyModeChrome() writes `panel.style.display` inline
+     ("none" for a demo visitor, "" for a live one), and that inline value must keep deciding
+     whether the panel exists at all. A `display` here would outrank nothing and break that -
+     the demo panel is live-only by design (#279) and has to stay gone. */
+  .canvas-surface .rail,
+  .canvas-surface .panel {
+    position:fixed; left:0; right:0; bottom:0; z-index:41;
+    width:auto; max-height:min(72vh,560px);
+    border:none; border-top:1px solid var(--border);
+    border-radius:16px 16px 0 0;
+    box-shadow:0 -10px 34px rgba(4,6,12,.28);
+    padding-bottom:max(16px,env(safe-area-inset-bottom));
+    transform:translateY(101%);
+    transition:transform .24s cubic-bezier(.4,0,.2,1);
+    overscroll-behavior:contain;
+  }
+  .canvas-surface.sheet-rail .rail,
+  .canvas-surface.sheet-panel .panel {transform:none}
+
+  /* The grab handle is a PSEUDO-element on purpose: renderPanel() owns #panel's innerHTML and
+     rewrites it wholesale on every render, so any real close button placed inside would be
+     erased by the next selection. Dismissal is the scrim, Escape, and the header toggle -
+     three routes that live outside the markup this element keeps overwriting. */
+  .canvas-surface .rail::before,
+  .canvas-surface .panel::before {
+    content:""; flex:none; align-self:center;
+    width:36px; height:4px; border-radius:2px; background:var(--border);
+    margin:2px 0 12px;
+  }
+
+  /* Off-canvas fixed children still count toward scrollable overflow, and DESIGN_SYSTEM s10
+     requires scrollWidth == clientWidth at 390. The surface clips its own overflow rather
+     than letting a closed sheet 101% below the fold invent a scrollbar. */
+  .canvas-surface {overflow:clip}
+
+  /* The one control that opens the rail sheet. Hidden above this breakpoint, where the rail
+     is a column and needs no door. Not in applyModeChrome's live-only list ("setupChat",
+     "compose", "export") and that is correct: #279 keeps the connect rail for demo visitors
+     because building the canvas IS the demo, so its door has to survive demo mode too. */
+  .canvas-surface .cv-head .cv-addsrc {display:inline-flex}
+
+  /* #976: .qrow is flex nowrap and #qtext takes flex's default min-width:auto, so the row
+     could not shrink to its dock - measured at 390 the Ask button ran to x=407 against a
+     390px viewport, clipped to a 32px sliver with no scroll to reach it. The input gets its
+     own row and the three controls sit under it, the same shape app.css:1271 already gives
+     Draft's three-control composer.
+
+     `order:-1` puts the input on the first row although it is the second child: the question
+     is the thing being composed, and leaving it in DOM order pushed the identity select onto
+     a row of its own and made the dock three rows tall on an 844px screen. */
+  .canvas-surface .qrow {flex-wrap:wrap; row-gap:8px}
+  .canvas-surface .qrow input {order:-1; flex:1 0 100%; min-width:0}
+  .canvas-surface .qrow select {margin-right:auto}
+
+  /* #975: the status bar is a seven-item nowrap row that measured 512px inside a 390px box,
+     so its last two items were simply off the screen - and one of them was "⚠ 1 without ACL".
+     A bar that reports "3 connected" while hiding the warning next to it is the honesty bug
+     DESIGN_SYSTEM s11.5 says to fix before the styling one. It wraps here instead.
+
+     The drag hint is the one item that goes: "drag to arrange · click a node to configure"
+     describes a mouse, and it is the only item that is instruction rather than state - the
+     same call app.css:1271 makes when it drops the Shift+Enter hint on touch. */
+  .canvas-surface .statusbar {flex-wrap:wrap; gap:6px 14px}
+  .canvas-surface .statusbar .hint {display:none}
 }
