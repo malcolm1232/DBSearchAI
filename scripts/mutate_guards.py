@@ -61,6 +61,9 @@ CONNECTOR_PATH = "src/dbsearch/router/providers/connector.py"
 PROOFS_JS = "src/dbsearch/server/static/js/ui/proofs.js"
 ANSWER_SURFACE = "tests/selftest_715_729_answer_surface.py"
 DOC_BLOCK = "tests/selftest_724_doc_block.py"
+# #975: the one guard that needs a laid-out browser, so it serves itself out of the
+# scratch tree rather than trusting whatever is already listening on localhost.
+MOBILE_GUARD = "tests/selftest_975_connectors_on_mobile.py"
 
 # Every entry: the card it belongs to, the exact edit, the guard that owns it, and what we
 # currently believe. `old` must appear EXACTLY ONCE in the file, which is checked - a mutation
@@ -2744,6 +2747,45 @@ MUTATIONS = [
          why="The gate lying about its own requirement (#920's defect): this kind reads an "
              "anonymous link with no Microsoft identity, so a Connect-your-Microsoft-account "
              "tile would shut the door on exactly the user it exists for."),
+
+    # ---- #975 / #976 / #978: the Connectors canvas below 920px ------------------------------
+    # Faithful to the shipped defect: `git show b9f7007^:src/dbsearch/server/static/css/canvas.css`
+    # ends its `@media (max-width:920px)` block with exactly the display:none line restored here.
+    dict(id="975-rail-and-panel-hidden", card="#975", path=CANVAS_CSS, guard=MOBILE_GUARD,
+         old="""  .canvas-surface.sheet-rail .rail,
+  .canvas-surface.sheet-panel .panel {transform:none}""",
+         new="""  .canvas-surface .rail,
+  .canvas-surface .panel {display:none}""",
+         expect="caught",
+         why="THE #975 DEFECT as prod served it. The canvas is a three-column grid and this "
+             "media query collapsed the two side TRACKS, which is right, by hiding their "
+             "CONTENTS, which cost the surface every connector it has. Measured at 390 on "
+             "prod: the whole 'Add a source' catalogue gone (Azure 5, Google Cloud 1, AWS 4, "
+             "Files & Links 5) with no other way to add one, and the config panel gone with "
+             "the connection fields and 'Connect with Microsoft' inside it - which is why the "
+             "owner reported that only Google was there. Not a demo-mode artifact: a forced "
+             "non-demo canvas at 390 still computed rail:none panel:none."),
+    dict(id="976-query-dock-cannot-shrink", card="#976", path=CANVAS_CSS, guard=MOBILE_GUARD,
+         old="""  .canvas-surface .qrow {flex-wrap:wrap; row-gap:8px}
+  .canvas-surface .qrow input {order:-1; flex:1 0 100%; min-width:0}
+""",
+         new="",
+         expect="caught",
+         why="#976 verbatim: .qrow is flex nowrap and #qtext keeps flex's default "
+             "min-width:auto, so the row cannot shrink to its own dock. Measured at 390 the "
+             "Ask button ran x=358 to right=407 against a 390px viewport - clipped to a 32px "
+             "sliver, and documentElement.scrollWidth stayed 390 so there was no scroll to "
+             "reach it. The primary action on the surface, unpressable."),
+    dict(id="978-status-bar-hides-its-warning", card="#978", path=CANVAS_CSS, guard=MOBILE_GUARD,
+         old="""  .canvas-surface .statusbar {flex-wrap:wrap; gap:6px 14px}
+  .canvas-surface .statusbar .hint {display:none}
+""",
+         new="",
+         expect="caught",
+         why="#978: a seven-item nowrap row measuring 512px inside a 390px box put its last "
+             "two items off the screen, and one of them was the warning - the bar reported "
+             "'3 connected' while hiding '1 without ACL' beside it, with no scrollbar to "
+             "reveal it. DESIGN_SYSTEM s11.5: fix the honesty bug before the styling bug."),
 ]
 
 

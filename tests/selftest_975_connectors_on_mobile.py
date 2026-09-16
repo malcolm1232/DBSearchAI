@@ -23,13 +23,50 @@ And it asserts the PROPERTY, not the mechanism (s10 again). It does not check fo
 that the panel's fields can be reached. A future pass is free to replace the bottom sheet with
 a drawer, a tab or a modal, and this test should still pass.
 
-Run:  python3 tests/selftest_975_connectors_on_mobile.py [base_url]
-      (default http://127.0.0.1:8080 - start one with scripts/dev_up.sh)
-"""
-import sys
+It SERVES ITSELF, from the tree it is sitting in, on an ephemeral port. That is not
+convenience: scripts/mutate_guards.py runs a guard inside a `git archive` scratch tree with one
+edit applied, so a guard that pointed at an already-running localhost would measure the
+UNMUTATED working tree and report every mutation caught while proving nothing - the "caught for
+the wrong reason" failure that script's own docstring warns about. Pass a base_url to aim it at
+a deployed origin instead (that is how it is run against prod after a deploy).
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8080"
-URL = BASE.rstrip("/") + "/canvas"
+Run:  python3 tests/selftest_975_connectors_on_mobile.py              # serves itself
+      python3 tests/selftest_975_connectors_on_mobile.py https://dbsearch.ai
+"""
+import contextlib
+import os
+import socket
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+BASE = sys.argv[1] if len(sys.argv) > 1 else None
+
+
+def _free_port():
+    with contextlib.closing(socket.socket()) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@contextlib.contextmanager
+def _origin():
+    """Either the URL we were handed, or an app served out of THIS tree."""
+    if BASE:
+        yield BASE.rstrip("/")
+        return
+    os.environ.setdefault("SELFHOST_BACKEND", "memory")
+    os.environ.setdefault("DBSEARCH_DEV_AUTH", "1")
+    os.environ.setdefault("DBSEARCH_DEV_SEED", "1")
+    from _e2eserver import serving                      # noqa: E402  #846, one way to serve
+    from dbsearch.server.app import app                 # noqa: E402
+
+    port = _free_port()
+    with serving(app, "127.0.0.1", port):
+        yield "http://127.0.0.1:%d" % port
 
 # 920 is the breakpoint. 919/921 straddle it; the rest are real devices plus the desktop the
 # design system names. A bug that only shows up ON the boundary is the usual kind.
@@ -81,14 +118,7 @@ def open_rail(page):
         page.wait_for_timeout(400)
 
 
-def main():
-    from playwright.sync_api import sync_playwright
-
-    print("#975 Connectors-on-mobile self-test  ->  " + URL)
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
-
+def _run(page, URL):
         # ---- below the breakpoint: everything must still be REACHABLE ----
         for w in MOBILE:
             page.set_viewport_size({"width": w, "height": 844})
@@ -192,7 +222,20 @@ def main():
             check("%d: the mobile-only 'Add a source' door is hidden" % w, desk["doorHidden"])
             check("%d: no horizontal scroll (s10)" % w, desk["noHScroll"])
 
-        browser.close()
+
+def main():
+    from playwright.sync_api import sync_playwright
+
+    with _origin() as origin:
+        url = origin + "/canvas"
+        print("#975 Connectors-on-mobile self-test  ->  " + url)
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            try:
+                _run(page, url)
+            finally:
+                browser.close()
 
     print("\n%d passed, %d failed" % (len(passed), len(failed)))
     if failed:
