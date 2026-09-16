@@ -110,6 +110,39 @@ def rects(page):
     )
 
 
+def ready(page, url):
+    """Load the surface and WAIT FOR IT, rather than sleeping a number and hoping.
+
+    A flat 900ms was enough against a local uvicorn and not enough against prod behind
+    Cloudflare, where the same page measured zero provider rows and reported ten failures that
+    were entirely the harness's. `buildRail()` runs after /config answers, so the rows arriving
+    IS the readiness signal - there is nothing to wait on before it and nothing to gain after.
+    """
+    page.goto(url, wait_until="load")
+    page.wait_for_function(
+        "() => document.querySelectorAll('.canvas-surface .rail .prov').length >= 4",
+        timeout=30000)
+    # The qdock's identity select is populated by the same /config round trip.
+    page.wait_for_function(
+        "() => !!document.querySelector('.canvas-surface .qrow') "
+        "&& document.querySelectorAll('.canvas-surface .qrow > *').length >= 3",
+        timeout=30000)
+
+
+def is_demo(page):
+    """A demo visitor has NO config panel, by design (#279, applyModeChrome).
+
+    This is the difference between the dev rig and dbsearch.ai as a stranger, and it has to be
+    read from the page rather than assumed: asserting "the panel is reachable" against prod
+    would fail on correct behaviour, and a guard that cries wolf on a deployed origin is a
+    guard people stop running against deployed origins.
+    """
+    return page.evaluate("() => { const h=document.querySelector('.canvas-surface');"
+                         "  const p=document.querySelector('.canvas-surface .panel');"
+                         "  return !!h && (h.classList.contains('demo-mode')"
+                         "                 || (!!p && p.style.display==='none')); }")
+
+
 def open_rail(page):
     """Reach the source catalogue however this build exposes it."""
     if page.evaluate("() => { const b=document.getElementById('addSource');"
@@ -122,9 +155,9 @@ def _run(page, URL):
         # ---- below the breakpoint: everything must still be REACHABLE ----
         for w in MOBILE:
             page.set_viewport_size({"width": w, "height": 844})
-            page.goto(URL, wait_until="load")
-            page.wait_for_timeout(900)
-            print("\n@%dpx" % w)
+            ready(page, URL)
+            print("\n@%dpx" % w + ("   [demo visitor: no config panel by design]"
+                                    if is_demo(page) else ""))
 
             m = rects(page)
             check("%d: no horizontal scroll (s10)" % w, m["noHScroll"])
@@ -134,6 +167,7 @@ def _run(page, URL):
             check("%d: that door is a >=24px tap target (s10)" % w, m["addSourceH"] >= 24,
                   "height %.1f" % m["addSourceH"])
 
+            demo = is_demo(page)
             open_rail(page)
             m2 = rects(page)
             rows = m2["railRows"]
@@ -147,36 +181,70 @@ def _run(page, URL):
             # A source can actually be added, and its config panel is then reachable. This is
             # the half that "only Google is there" was really about: the panel carries the
             # per-node connection fields and the Microsoft grant.
+            # Pick an UNGATED service, walking the providers until one turns up. svc[0] was
+            # naive: on prod as a stranger the first Azure tile is gated, and a gated tile's
+            # whole job is to send you to a consent URL - `location.href = g.href` - so the
+            # probe navigated away and Playwright lost its execution context mid-run. The dev
+            # rig hid this because no real login is configured there, so nothing gates.
             added = page.evaluate(
                 """async () => {
+                  const host=document.querySelector('.canvas-surface');
                   const rows=[...document.querySelectorAll('.canvas-surface .rail .prov')];
                   if(!rows.length) return {ok:false, why:'no provider rows'};
-                  rows[0].dispatchEvent(new MouseEvent('click',{bubbles:true}));
-                  await new Promise(r=>setTimeout(r,350));
-                  const svc=[...document.querySelectorAll('#provmenu .svc')];
-                  if(!svc.length) return {ok:false, why:'no services in the flyout'};
-                  const onScreen = svc.every(e=>{const b=e.getBoundingClientRect();
-                    return b.right<=innerWidth+0.5 && b.x>=-0.5;});
-                  const before=document.querySelectorAll('.canvas-surface .node').length;
-                  svc[0].click();
-                  await new Promise(r=>setTimeout(r,700));
-                  const panel=document.querySelector('.canvas-surface .panel');
-                  const ps=getComputedStyle(panel);
-                  const pb=panel.getBoundingClientRect();
-                  return {ok:true, servicesOnScreen:onScreen,
-                          nodeAdded: document.querySelectorAll('.canvas-surface .node').length>before,
-                          panelShown: ps.display!=='none' && ps.visibility!=='hidden' && pb.height>0,
-                          panelOnScreen: pb.top < innerHeight && pb.bottom > 0 && pb.width>0,
-                          panelFields: panel.querySelectorAll('input,select,textarea,button').length};
+                  let sawAnyService=false, allOnScreen=true;
+                  for(const row of rows){
+                    row.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+                    await new Promise(r=>setTimeout(r,350));
+                    const svc=[...document.querySelectorAll('#provmenu .svc')];
+                    if(svc.length) sawAnyService=true;
+                    for(const e of svc){ const b=e.getBoundingClientRect();
+                      if(b.right>innerWidth+0.5 || b.x<-0.5) allOnScreen=false; }
+                    const open=svc.find(e=>!e.classList.contains('gated'));
+                    if(!open) continue;                       // every tile here needs a grant
+                    const before=document.querySelectorAll('.canvas-surface .node').length;
+                    open.click();
+                    await new Promise(r=>setTimeout(r,900));
+                    const panel=document.querySelector('.canvas-surface .panel');
+                    const ps=getComputedStyle(panel), pb=panel.getBoundingClientRect();
+                    return {ok:true, servicesOnScreen:allOnScreen, pickedUngated:true,
+                            aSheetIsOpen: host.classList.contains('sheet-rail'),
+                            nodeAdded: document.querySelectorAll('.canvas-surface .node').length>before,
+                            panelShown: ps.display!=='none' && ps.visibility!=='hidden' && pb.height>0,
+                            panelOnScreen: pb.top < innerHeight && pb.bottom > 0 && pb.width>0,
+                            panelFields: panel.querySelectorAll('input,select,textarea,button').length};
+                  }
+                  // Every service on this deployment needs a grant first. That is a legitimate
+                  // state, not a failure - what still has to be true is that the catalogue was
+                  // REACHABLE and readable, which is what #975 was about.
+                  return {ok:sawAnyService, servicesOnScreen:allOnScreen, pickedUngated:false,
+                          why:'every service is gated on this deployment'};
                 }"""
             )
             check("%d: the service flyout fits on the screen" % w,
                   added.get("ok") and added.get("servicesOnScreen"), str(added))
-            check("%d: picking a service adds a node" % w, bool(added.get("nodeAdded")), str(added))
-            check("%d: the node's config panel is reachable" % w,
-                  bool(added.get("panelShown") and added.get("panelOnScreen")), str(added))
-            check("%d: that panel carries its connection controls" % w,
-                  added.get("panelFields", 0) >= 3, "%s controls" % added.get("panelFields"))
+            if not added.get("pickedUngated"):
+                # Nothing ungated to click. The #975 property that survives is the one above:
+                # the catalogue is on the screen and legible. Say so rather than inventing a
+                # pass or a failure.
+                check("%d: the source catalogue is readable even when every tile is gated" % w,
+                      bool(added.get("ok")), str(added))
+            elif demo:
+                # #279: the config panel is live-only, so on a demo canvas its ABSENCE is the
+                # correct behaviour and asserting reachability would fail on a working product.
+                # The half that still has to hold here is the half a demo visitor uses: they
+                # build the canvas, so adding a source must work and must leave nothing
+                # covering it.
+                check("%d: picking a service adds a node" % w, bool(added.get("nodeAdded")), str(added))
+                check("%d: a demo canvas keeps its panel deliberately closed" % w,
+                      not added.get("panelShown"), str(added))
+                check("%d: the rail sheet stands down once a node is added" % w,
+                      not added.get("aSheetIsOpen"), str(added))
+            else:
+                check("%d: picking a service adds a node" % w, bool(added.get("nodeAdded")), str(added))
+                check("%d: the node's config panel is reachable" % w,
+                      bool(added.get("panelShown") and added.get("panelOnScreen")), str(added))
+                check("%d: that panel carries its connection controls" % w,
+                      added.get("panelFields", 0) >= 3, "%s controls" % added.get("panelFields"))
 
             # #976 + #978: nothing in the dock or the status bar may sit off the edge.
             m3 = rects(page)
@@ -193,8 +261,7 @@ def _run(page, URL):
         # ---- above the breakpoint: the three-column canvas is untouched ----
         for w in DESKTOP:
             page.set_viewport_size({"width": w, "height": 900})
-            page.goto(URL, wait_until="load")
-            page.wait_for_timeout(900)
+            ready(page, URL)
             print("\n@%dpx" % w)
 
             desk = page.evaluate(
