@@ -2754,13 +2754,13 @@ MUTATIONS = [
     # ---- #982: the topbar breakpoint that was tuned to the pixel -------------------------
     dict(id="982-topbar-breakpoint-is-a-coincidence", card="#982", path=APP_CSS,
          guard=TOPBAR_GUARD,
-         old="@media (max-width: 1000px) {\n  .topbar .edition-pill",
+         old="@media (max-width: 1040px) {\n  .topbar .edition-pill",
          new="@media (max-width: 900px) {\n  .topbar .edition-pill",
          expect="caught",
          why="THE #982 DEFECT as main shipped it. #639 measured that the topbar's full row "
              "stops fitting below 901px and sheds its two informational items at 900 - one "
              "pixel of margin, on one machine's fonts. The row is font metrics all the way "
-             "down: min-content 646 on macOS, 673 on a Linux runner, so every viewport in "
+             "down: min-content 646 on macOS, 693 on a Linux runner, so every viewport in "
              "901..921 scrolled the page sideways there and DESIGN_SYSTEM s10 forbids that at "
              "any width. Restoring 900 restores a 7px margin, which the guard reads as the "
              "coincidence it is. Note what this mutation does NOT trip: the plain 'does it "

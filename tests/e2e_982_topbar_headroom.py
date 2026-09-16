@@ -16,8 +16,8 @@ Measured on the same commit, same page, same viewport:
     model-pick      281.8    313.0
     edition-pill     82.3     89.1
     .acct           118.5    125.3
-    ROW MIN-CONTENT   646      673
-    VIEWPORT NEEDED   901      921
+    ROW MIN-CONTENT   646      693
+    PAGE SCROLLED BELOW 901      921
 
 So every viewport from 901 to 921 scrolled the page sideways on Linux, which DESIGN_SYSTEM s10
 forbids at any width, while passing on the machine the number came from. It was found by
@@ -26,8 +26,13 @@ forbids at any width, while passing on the machine the number came from. It was 
 A test that asks "does the row fit at breakpoint+1" would have passed on macOS with 7px to
 spare and reported nothing, which is exactly how the bug shipped. So this one measures the
 MARGIN and requires it to be a real fraction of the row rather than a rounding error. 10%
-covers the 4.2% spread between the two font stacks measured above with room left over, and
+covers the 7.3% spread between the two font stacks measured above with room left over, and
 being a ratio it tracks the row's own content instead of being one more pixel count to re-tune.
+
+One more thing the numbers taught: the two rows of that table are DIFFERENT measurements. 921
+is where the runner's page stopped scrolling sideways, with the trust chip squeezed under its
+own minimum; 693 is what `width: min-content` reports, and that is what this test reads. The
+first cut of the fix sized the breakpoint from 921 and came up 11px short on the runner.
 
 It reads the breakpoint OUT OF THE CSS rather than hard-coding it, so moving the rule moves the
 test with it and the two can never describe different layouts (the same trick #639 uses to keep
@@ -59,7 +64,7 @@ MIN_HEADROOM_RATIO = 0.10
 
 # Dense around the breakpoint, because a band 20px wide is exactly what the device-width
 # sweeps everyone writes step straight over, plus the widths DESIGN_SYSTEM s10 names.
-SWEEP = [360, 390, 430, 768, 820, 900, 901, 919, 920, 960, 1000, 1001, 1024, 1280, 1440]
+SWEEP = [360, 390, 430, 768, 820, 900, 901, 919, 920, 960, 1000, 1024, 1040, 1041, 1280, 1440]
 
 passed, failed = [], []
 

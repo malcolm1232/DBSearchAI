@@ -79,18 +79,20 @@ button { font-family: inherit; cursor: pointer; }
        model-pick      281.8    313.0
        edition-pill     82.3     89.1
        .acct           118.5    125.3
-       ROW MIN-CONTENT   646      673
-       VIEWPORT NEEDED   901      921
+       ROW MIN-CONTENT   646      693
 
    So every viewport in 901..921 scrolled the page sideways anywhere the fonts were not the
    ones the number came from, and CI went red on a width that had passed for months locally.
+   (921 is where the runner's page stopped scrolling, with the trust chip squeezed under its
+   own minimum; 693 is what `width: min-content` reports for the row, which is the number a
+   breakpoint has to clear. The first cut of this fix used 921 and came up 11px short.)
 
-   1000 is derived from that measurement rather than trimmed to it: the row needs
-   248px of rail reserve plus its own min-content, and holding 10% of the row in reserve asks
-   for 959px on macOS and 989px on Linux, so 1000 clears the wider of the two and keeps ~12%
-   in hand. tests/e2e_982_topbar_headroom.py measures that margin on every run - asserting the
+   1040 is derived from that measurement rather than trimmed to it: the row needs 248px of
+   rail reserve plus its own min-content, and holding 10% of the row in reserve asks for
+   959px on macOS and 1011px on Linux, so 1040 clears the wider of the two and keeps ~14% in
+   hand. tests/e2e_982_topbar_headroom.py measures that margin on every run - asserting the
    row merely FITS is what let a 1px margin look healthy. */
-@media (max-width: 1000px) {
+@media (max-width: 1040px) {
   .topbar .edition-pill, .topbar .trust-chip { display: none; }
   .topbar { gap: 10px; padding: 0 12px; }
   .model-pick { min-width: 0; }
