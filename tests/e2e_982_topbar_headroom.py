@@ -65,7 +65,14 @@ passed, failed = [], []
 
 
 def check(name, ok, detail=""):
-    (passed if ok else failed).append(name)
+    """A failure carries its NUMBERS into the summary block, not just its name.
+
+    scripts/run_tests.py reports a failing file by quoting that block, and a block of bare
+    names told CI "at 1001px the full row keeps >=10% of itself in headroom" with no headroom
+    in it - which needed another round trip to turn into a number. What failed is half the
+    report; by how much is the other half.
+    """
+    (passed if ok else failed).append(name if ok or not detail else name + "  -- " + detail)
     print(("  PASS  " if ok else "  FAIL  ") + name + (("  -- " + detail) if detail and not ok else ""))
 
 
