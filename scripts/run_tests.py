@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -73,8 +74,51 @@ def _run(path: Path, timeout: float, ledger: "Path | None" = None) -> tuple[str,
     elapsed = time.monotonic() - started
     if proc.returncode == 0:
         return "PASS", elapsed, ""
-    tail = (proc.stderr or proc.stdout or "").strip().splitlines()
-    return "FAIL", elapsed, tail[-1] if tail else f"exit {proc.returncode}"
+    return "FAIL", elapsed, _why_it_failed(proc.stdout or "", proc.stderr or "",
+                                           proc.returncode)
+
+
+# A test file in this suite reports a failed CHECK by printing its own block on stdout:
+#
+#     FAILED:
+#       - 919: no horizontal scroll (s10)
+#
+# and reports having DIED by letting a traceback reach stderr. Those are two different sources
+# and only one of them is right per failure.
+_OWN_BLOCK = re.compile(r"^FAILED[^\n]*:?\s*$", re.MULTILINE)
+
+
+def _why_it_failed(out: str, err: str, returncode: int) -> str:
+    """The line that tells a reader WHICH check went red.
+
+    #983: this used to be `(proc.stderr or proc.stdout).strip().splitlines()[-1]`, so stderr won
+    whenever it was non-empty. Every file that boots the app writes the dev-auth banner there,
+    which meant every failure in every one of those files was reported as
+
+        FAIL  selftest_975_connectors_on_mobile.py  (14s)  identity: DEV AUTH IS ON ...
+
+    - a warning, identical for each file, unrelated to the failure, while the test's own
+    "919: no horizontal scroll" sat in the stdout this function had in its hand and dropped.
+    That cost a CI round trip on a throwaway branch to recover a line the runner already had.
+
+    A traceback still comes from stderr, because for a test that died the exception IS the
+    answer and there is no block on stdout to read.
+    """
+    if "Traceback (most recent call last)" in err:
+        lines = [ln for ln in err.strip().splitlines() if ln.strip()]
+        return lines[-1] if lines else f"exit {returncode}"
+    found = list(_OWN_BLOCK.finditer(out))
+    if found:
+        named = [ln.strip().lstrip("- ").strip()
+                 for ln in out[found[-1].end():].strip().splitlines() if ln.strip()]
+        if named:
+            head = "; ".join(named[:3])
+            return head + (f"  (+{len(named) - 3} more)" if len(named) > 3 else "")
+    for stream in (out, err):
+        lines = [ln for ln in stream.strip().splitlines() if ln.strip()]
+        if lines:
+            return lines[-1]
+    return f"exit {returncode}"
 
 
 def main() -> int:
