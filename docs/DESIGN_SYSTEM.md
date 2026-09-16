@@ -283,6 +283,11 @@ What "done" means for a UI change here:
 - A **real browser** on the deployed URL, not just the local one.
 - Check the **deployed** HTML, not the local copy. A localhost fallback baked into a static export shipped links pointing at the visitor's own machine, and only grepping the live page caught it.
 - At 1440 and 390: no horizontal scroll, `scrollWidth == clientWidth`, tap targets at least 24px.
+- And at **one pixel either side of every breakpoint you introduce**, because a band twenty pixels wide is exactly what a sweep of device widths steps over.
+  #982: the topbar shed its informational items at `max-width: 900px` because the row stopped fitting below 901px on the machine that measured it.
+  1440 and 390 both passed for months while every viewport from 901 to 921 scrolled the page sideways anywhere the fonts were wider.
+- A breakpoint needs **margin, not a fit**. Text width is font metrics, and a CI runner does not have a Mac's fonts: the same row measured 646px of min-content locally and 673px on `ubuntu-latest`.
+  Pick the number so the layout keeps about 10% of itself in hand, and have the test measure that margin - asserting the row merely fits is how a 1px margin passes for healthy.
 
 Tests assert the **shared definition**, not per-page markup.
 The nav selftests check `rail.js` contents rather than rendered markup, because the old assertions would have passed while two copies drifted.

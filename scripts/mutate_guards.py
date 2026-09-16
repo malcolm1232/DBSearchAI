@@ -64,6 +64,9 @@ DOC_BLOCK = "tests/selftest_724_doc_block.py"
 # #975: the one guard that needs a laid-out browser, so it serves itself out of the
 # scratch tree rather than trusting whatever is already listening on localhost.
 MOBILE_GUARD = "tests/selftest_975_connectors_on_mobile.py"
+APP_CSS = "src/dbsearch/server/static/css/app.css"
+# #982: the same self-serving shape, measuring the app SHELL's topbar rather than the canvas.
+TOPBAR_GUARD = "tests/e2e_982_topbar_headroom.py"
 
 # Every entry: the card it belongs to, the exact edit, the guard that owns it, and what we
 # currently believe. `old` must appear EXACTLY ONCE in the file, which is checked - a mutation
@@ -2747,6 +2750,22 @@ MUTATIONS = [
          why="The gate lying about its own requirement (#920's defect): this kind reads an "
              "anonymous link with no Microsoft identity, so a Connect-your-Microsoft-account "
              "tile would shut the door on exactly the user it exists for."),
+
+    # ---- #982: the topbar breakpoint that was tuned to the pixel -------------------------
+    dict(id="982-topbar-breakpoint-is-a-coincidence", card="#982", path=APP_CSS,
+         guard=TOPBAR_GUARD,
+         old="@media (max-width: 1000px) {\n  .topbar .edition-pill",
+         new="@media (max-width: 900px) {\n  .topbar .edition-pill",
+         expect="caught",
+         why="THE #982 DEFECT as main shipped it. #639 measured that the topbar's full row "
+             "stops fitting below 901px and sheds its two informational items at 900 - one "
+             "pixel of margin, on one machine's fonts. The row is font metrics all the way "
+             "down: min-content 646 on macOS, 673 on a Linux runner, so every viewport in "
+             "901..921 scrolled the page sideways there and DESIGN_SYSTEM s10 forbids that at "
+             "any width. Restoring 900 restores a 7px margin, which the guard reads as the "
+             "coincidence it is. Note what this mutation does NOT trip: the plain 'does it "
+             "fit' sweep still passes at every width on macOS, which is exactly how the bug "
+             "shipped green for months and was found only by CI."),
 
     # ---- #975 / #976 / #978: the Connectors canvas below 920px ------------------------------
     # Faithful to the shipped defect: `git show b9f7007^:src/dbsearch/server/static/css/canvas.css`

@@ -68,8 +68,29 @@ button { font-family: inherit; cursor: pointer; }
    sideways. Design-system rule 10 forbids a horizontal scrollbar at any width.
    What goes first is what a user can lose: the edition pill is status and the trust chip is
    reassurance, both of which the marketing site and the rail's own permission note already
-   say. The model picker and the account control are things you ACT on, so they stay. */
-@media (max-width: 900px) {
+   say. The model picker and the account control are things you ACT on, so they stay.
+
+   #982: THE NUMBER WAS 900, AND 900 WAS A COINCIDENCE. The row stopped fitting below 901px on
+   the machine it was measured on, so the rule fired exactly one pixel below the width at which
+   it ran out of room. That row is font metrics all the way down, and a Linux runner does not
+   have a Mac's fonts. Same commit, same page, same viewport:
+
+       item            macOS    ubuntu-latest
+       model-pick      281.8    313.0
+       edition-pill     82.3     89.1
+       .acct           118.5    125.3
+       ROW MIN-CONTENT   646      673
+       VIEWPORT NEEDED   901      921
+
+   So every viewport in 901..921 scrolled the page sideways anywhere the fonts were not the
+   ones the number came from, and CI went red on a width that had passed for months locally.
+
+   1000 is derived from that measurement rather than trimmed to it: the row needs
+   248px of rail reserve plus its own min-content, and holding 10% of the row in reserve asks
+   for 959px on macOS and 989px on Linux, so 1000 clears the wider of the two and keeps ~12%
+   in hand. tests/e2e_982_topbar_headroom.py measures that margin on every run - asserting the
+   row merely FITS is what let a 1px margin look healthy. */
+@media (max-width: 1000px) {
   .topbar .edition-pill, .topbar .trust-chip { display: none; }
   .topbar { gap: 10px; padding: 0 12px; }
   .model-pick { min-width: 0; }
